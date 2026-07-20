@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDeadlineDisplay, DEADLINE_HOURS, pad2 } from '../utils/dateHelpers';
 
 export function useLiveTimer(intervalMs = 1000): number {
   const [tick, setTick] = useState(0);
@@ -15,19 +16,14 @@ export function formatElapsed(createdAt: string): { h: string; m: string; s: str
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return { h: pad(h), m: pad(m), s: pad(s) };
+  return { h: pad2(h), m: pad2(m), s: pad2(s) };
 }
 
 export function formatDeadline(ms: number): { text: string; expired: boolean; pct: number } {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const totalMs = DEADLINE_HOURS * 3600 * 1000;
   return {
-    text: `${pad(h)}:${pad(m)}:${pad(s)}`,
+    text: formatDeadlineDisplay(ms),
     expired: ms <= 0,
-    pct: ms <= 0 ? 100 : Math.min(100, ((6 * 3600 * 1000 - ms) / (6 * 3600 * 1000)) * 100),
+    pct: ms <= 0 ? 100 : Math.min(100, ((totalMs - ms) / totalMs) * 100),
   };
 }

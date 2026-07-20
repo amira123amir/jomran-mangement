@@ -1,0 +1,37 @@
+/* Global age & SLA counters */
+.ow-global-age {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  direction: ltr;
+  display: inline-block;
+}
+.sla-pricing .ow-sla-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-amber);
+  direction: ltr;
+}
+.sla-pricing.expired .ow-sla-value {
+  color: var(--accent-red);
+  animation: slaFlash 0.8s infinite;
+}
+@keyframes slaFlash { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.exec-age-cell {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  direction: ltr;
+  white-space: nowrap;
+}
+.mct-age-cell {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  direction: ltr;
+  white-space: nowrap;
+}

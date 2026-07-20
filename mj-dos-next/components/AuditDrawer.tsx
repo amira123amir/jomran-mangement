@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuditStore } from '../stores/auditStore';
 
 export default function AuditDrawer() {
-  const { logs, isOpen, toggleDrawer, clearLogs } = useAuditStore();
+  const { logs, isOpen, toggleDrawer } = useAuditStore();
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,7 +45,6 @@ export default function AuditDrawer() {
               <span className="audit-drawer-subtitle">كل نقرة، تنقل، وإجراء يتم تتبعه</span>
             </div>
             <div className="audit-drawer-header-right">
-              <button className="audit-clear-btn" onClick={clearLogs}>مسح</button>
               <button className="audit-export-btn" onClick={() => {
                 const blob = new Blob([logs.map(l =>
                   `[${l.date} ${l.time}] [${l.persona}] [${l.department}] ${l.action}${l.details ? ' — ' + l.details : ''}`

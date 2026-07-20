@@ -1,5 +1,6 @@
 import { usePersonaStore } from '../stores/personaStore';
 import { canSeeNote } from '../utils/noteVisibility';
+import { CEO_NAME } from '../utils/constants';
 import type { Order } from '../types';
 
 export type OrderTab = 'info' | 'timeline' | 'pricing' | 'negotiation' | 'notes';
@@ -18,7 +19,7 @@ export default function OrderDetailsTabs({
   canAccessPricing?: boolean;
 }) {
   const currentUser = usePersonaStore((s) => s.activePersona);
-  const isManager = currentUser.name === 'محمد جمران';
+  const isManager = currentUser.name === CEO_NAME;
   const visibleNotesCount = order.notes.filter((n) => canSeeNote(n, currentUser.name, currentUser.department)).length;
   const timelineCount = (order.workflowHistory?.length || 0)
     + (order.pricingHistory?.length || 0)

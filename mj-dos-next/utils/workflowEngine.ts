@@ -1,4 +1,5 @@
 import type { OrderStatus, Department, Order } from '../types';
+import { CEO_NAME } from './constants';
 
 // Every workflow transition is declared once, here. The store must never mutate
 // order.status outside of transitionOrder() in orderStore.
@@ -229,7 +230,7 @@ const ALL_TRANSITIONS: WorkflowTransitionSpec[] = [
 ];
 
 export function isCEO(personaName: string): boolean {
-  return personaName === 'محمد جمران';
+  return personaName === CEO_NAME;
 }
 
 export function canTransition(from: OrderStatus, to: OrderStatus): boolean {

@@ -1,7 +1,6 @@
 import type { OrderNote, CustomNote } from '../types';
 import { PERSONAS } from '../data/personas';
-
-export const CEO_NAME = 'محمد جمران';
+import { CEO_NAME } from './constants';
 
 const NOTE_ALL_PEOPLE = '__all__';
 

@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { devtools, persist } from 'zustand/middleware';
+import { uid } from '../utils/helpers';
+import { pad2 } from '../utils/dateHelpers';
 
 export type ClientClassification = 'مصنع' | 'تاجر جملة' | 'تاجر تجزئة' | 'مقاولات';
 
@@ -52,8 +55,6 @@ interface ClientRegistryState {
   lockShippingMark: (clientId: string) => void;
 }
 
-let clientCounter = 0;
-
 function getCurrencyForClassification(c: ClientClassification): string {
   const map: Record<ClientClassification, string> = {
     'مصنع': 'USD',
@@ -64,35 +65,44 @@ function getCurrencyForClassification(c: ClientClassification): string {
   return map[c];
 }
 
-export const useClientRegistryStore = create<ClientRegistryState>((set, get) => ({
-  clients: [],
-  addClient: (data) => {
-    const id = `client-${++clientCounter}-${Date.now()}`;
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const createdAt = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const defaultCurrency = getCurrencyForClassification(data.classification);
-    const autoMark = generateShippingMark(data.country, data.legalName);
-    const shippingMark = data.customShippingMark || autoMark;
-    const client: Client = { ...data, id, createdAt, defaultCurrency, shippingMark, shippingMarkLocked: false, orderCount: 0 };
-    set((s) => ({ clients: [...s.clients, client] }));
-    return client;
-  },
-  getClientById: (id) => get().clients.find((c) => c.id === id),
-  incrementOrderCount: (clientId) =>
-    set((s) => ({
-      clients: s.clients.map((c) =>
-        c.id === clientId ? { ...c, orderCount: c.orderCount + 1 } : c
-      ),
-    })),
-  getNextSerial: (clientId) => {
-    const client = get().clients.find((c) => c.id === clientId);
-    return (client?.orderCount || 0) + 1;
-  },
-  lockShippingMark: (clientId) =>
-    set((s) => ({
-      clients: s.clients.map((c) =>
-        c.id === clientId ? { ...c, shippingMarkLocked: true } : c
-      ),
-    })),
-}));
+export const useClientRegistryStore = create<ClientRegistryState>()(
+  devtools(
+    persist(
+      (set, get) => ({
+        clients: [],
+        addClient: (data) => {
+          const id = uid('client');
+          const now = new Date();
+          const createdAt = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+          const defaultCurrency = getCurrencyForClassification(data.classification);
+          const autoMark = generateShippingMark(data.country, data.legalName);
+          const shippingMark = data.customShippingMark || autoMark;
+          const client: Client = { ...data, id, createdAt, defaultCurrency, shippingMark, shippingMarkLocked: false, orderCount: 0 };
+          set((s) => ({ clients: [...s.clients, client] }));
+          return client;
+        },
+        getClientById: (id) => get().clients.find((c) => c.id === id),
+        incrementOrderCount: (clientId) =>
+          set((s) => ({
+            clients: s.clients.map((c) =>
+              c.id === clientId ? { ...c, orderCount: c.orderCount + 1 } : c
+            ),
+          })),
+        getNextSerial: (clientId) => {
+          const client = get().clients.find((c) => c.id === clientId);
+          return (client?.orderCount || 0) + 1;
+        },
+        lockShippingMark: (clientId) =>
+          set((s) => ({
+            clients: s.clients.map((c) =>
+              c.id === clientId ? { ...c, shippingMarkLocked: true } : c
+            ),
+          })),
+      }),
+      {
+        name: 'mjdos-clients',
+      }
+    ),
+    { name: 'ClientRegistryStore' }
+  )
+);

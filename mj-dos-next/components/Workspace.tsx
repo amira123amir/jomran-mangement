@@ -6,7 +6,10 @@ import ProcurementWorkspace from './ProcurementWorkspace';
 import SupplierDirectory from './SupplierDirectory';
 import ManagerControlTower from './ManagerControlTower';
 import ExecutiveDashboard from './ExecutiveDashboard';
-import { SalesDashboard, ProcurementDashboard, AccountingDashboard, DefaultDashboard } from './DeptDashboards';
+import SalesDashboard from './SalesDashboard';
+import ProcurementDashboard from './ProcurementDashboard';
+import AccountingDashboard from './AccountingDashboard';
+import DefaultDashboard from './DefaultDashboard';
 
 export default function Workspace() {
   const { activePersona, activeTab } = usePersonaStore();

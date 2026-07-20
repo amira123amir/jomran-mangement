@@ -8,6 +8,7 @@ import { canSeeNote } from '../utils/noteVisibility';
 import OrderWorkspace from './OrderWorkspace';
 import { statusLabel, QUEUE_FILTERS } from '../utils/orderStatus';
 import { formatNumber } from '../utils/formatNumber';
+import { pad2 } from '../utils/dateHelpers';
 import OrderStatusFilterBar from './OrderStatusFilterBar';
 import type { Order } from '../types';
 
@@ -294,6 +295,6 @@ function MctAgeCell({ createdAt }: { createdAt: string }) {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return <span className="mct-age-cell">⏱ {pad(h)}:{pad(m)}:{pad(s)}</span>;
+
+  return <span className="mct-age-cell">⏱ {pad2(h)}:{pad2(m)}:{pad2(s)}</span>;
 }

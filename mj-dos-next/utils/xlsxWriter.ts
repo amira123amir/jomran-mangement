@@ -2,6 +2,8 @@
 // No third-party dependencies. Produces a valid workbook openable by Excel,
 // Numbers, LibreOffice, and Google Sheets.
 
+import { escapeXml } from './helpers';
+
 export type XlsxCell = string | number | null | undefined;
 export type XlsxRow = XlsxCell[];
 
@@ -38,15 +40,6 @@ function crc32(bytes: Uint8Array): number {
 
 function encode(str: string): Uint8Array {
   return new TextEncoder().encode(str);
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
 
 function colLetter(index: number): string {
@@ -233,6 +226,7 @@ export function buildXlsx(sheets: XlsxSheet[]): Uint8Array {
 }
 
 export function downloadXlsx(sheets: XlsxSheet[], fileName: string): void {
+  if (typeof document === 'undefined') return;
   const bytes = buildXlsx(sheets);
   const buffer = new ArrayBuffer(bytes.length);
   new Uint8Array(buffer).set(bytes);

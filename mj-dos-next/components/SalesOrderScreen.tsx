@@ -8,6 +8,7 @@ import { canSeeNote } from '../utils/noteVisibility';
 import { QUEUE_FILTERS, statusLabel } from '../utils/orderStatus';
 import { parseArabicNumber } from '../utils/arabicNumerals';
 import { formatNumber } from '../utils/formatNumber';
+import { pad2 } from '../utils/dateHelpers';
 import KYCModal from './KYCModal';
 import SuccessModal from './SuccessModal';
 import OrderWorkspace from './OrderWorkspace';
@@ -107,7 +108,7 @@ export default function SalesOrderScreen() {
   const actionNeededOrders = myOrders.filter((o) => ['pricing_completed', 'procurement_inquiry'].includes(o.status));
   // Presentation-only filter: never touches the master store.
   const activeQueueFilter = QUEUE_FILTERS.find((f) => f.id === salesQueueFilterId) ?? QUEUE_FILTERS[0];
-  const visibleOrders = myOrders.filter((o) => activeQueueFilter.match(o.status as OrderStatus));
+  const visibleOrders = myOrders.filter((o) => activeQueueFilter.match(o.status));
 
   const selectedClientData = clients.find((c) => c.id === selectedClient);
   const shippingMark = selectedClientData
@@ -186,17 +187,13 @@ export default function SalesOrderScreen() {
 
     setTimeout(() => {
       setOrderSubmitted(false);
-      // TEMP DEV ONLY - REMOVE BEFORE RELEASE
-      // Keep last-entered form values as defaults for the next order so the
-      // tester doesn't have to re-type them each time. In-memory only — no
-      // persistent store touched. Restore the resets below to remove.
-      // setSelectedClient('');
-      // setCategory('');
-      // setProductName('');
-      // setFields({});
-      // setQuantity('');
-      // setAttachments([]);
-      // setAttachmentUrl('');
+      setSelectedClient('');
+      setCategory('');
+      setProductName('');
+      setFields({});
+      setQuantity('');
+      setAttachments([]);
+      setAttachmentUrl('');
     }, 3000);
   };
 
@@ -610,6 +607,5 @@ function SalesAgeCell({ createdAt }: { createdAt: string }) {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return <span className="sos-order-age">⏱ {pad(h)}:{pad(m)}:{pad(s)}</span>;
+  return <span className="sos-order-age">⏱ {pad2(h)}:{pad2(m)}:{pad2(s)}</span>;
 }

@@ -1,6 +1,7 @@
 import type { Order, ProformaInvoice, QuotationCurrency, QuotationTemplate } from '../types';
 import { downloadXlsx } from './xlsxWriter';
 import { formatNumber } from './formatNumber';
+import { escapeHtml } from './helpers';
 
 export interface QuotationLineItem {
   productName: string;
@@ -312,15 +313,6 @@ function renderFooter(): string {
   `;
 }
 
-function escapeHtml(s: string): string {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function renderTemplate1(payload: QuotationPayload, items: QuotationLineItem[]): string {
   return `
     ${renderHeaderHtml(payload)}
@@ -355,6 +347,7 @@ function renderTemplate2(payload: QuotationPayload, items: QuotationLineItem[]):
 }
 
 export function exportQuotationPDF(payload: QuotationPayload): void {
+  if (typeof window === 'undefined') return;
   const items = buildLineItems(payload);
   const body = payload.template === 2
     ? renderTemplate2(payload, items)

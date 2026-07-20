@@ -1,6 +1,5 @@
 import type { Persona } from '../types';
-
-const CEO_NAME = 'محمد جمران';
+import { CEO_NAME } from './constants';
 
 export function canViewSupplierData(persona: Persona | { name: string; department: string }): boolean {
   if (persona.name === CEO_NAME) return true;

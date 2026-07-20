@@ -1,0 +1,44 @@
+/* PricingTab component */
+.pricing-tab {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pricing-tab h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.pricing-card {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-hairline) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 18px 22px !important;
+  margin-top: 0 !important;
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--dur-base) var(--ease-out);
+}
+.pricing-card:hover { box-shadow: var(--shadow-sm); }
+.pricing-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+.price-details {
+  gap: 18px !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  font-size: 13px !important;
+  color: var(--text-secondary);
+}
+.price-details p { display: flex; gap: 4px; align-items: baseline; }
+.price-details strong {
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: -0.005em;
+}

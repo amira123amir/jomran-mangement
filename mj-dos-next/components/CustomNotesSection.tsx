@@ -6,8 +6,8 @@ import {
   getCurrentUserIds,
   canSeeConfidentialNote,
   isConfidentialRecipient,
-  CEO_NAME,
 } from '../utils/noteVisibility';
+import { CEO_NAME } from '../utils/constants';
 
 interface CustomNotesSectionProps {
   persona: string;

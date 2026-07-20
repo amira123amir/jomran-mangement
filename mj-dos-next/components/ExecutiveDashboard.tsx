@@ -4,6 +4,7 @@ import { useOrderStore } from '../stores/orderStore';
 import { useLiveTimer } from '../hooks/useLiveTimer';
 import { NOTE_TARGETS, getCurrentUserIds, canSeeConfidentialNote, isConfidentialRecipient } from '../utils/noteVisibility';
 import { formatNumber } from '../utils/formatNumber';
+import { pad2 } from '../utils/dateHelpers';
 import { statusLabel } from '../utils/orderStatus';
 import OrderWorkspace from './OrderWorkspace';
 import StatusFilter from './StatusFilter';
@@ -390,11 +391,10 @@ function SLATimerInline({ deadlineAt }: { deadlineAt: string }) {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
 
   return (
     <span className={`exec-sla ${expired ? 'expired' : ''}`}>
-      {expired ? `منتهي بـ ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`}
+      {expired ? `منتهي بـ ${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(h)}:${pad2(m)}:${pad2(s)}`}
     </span>
   );
 }

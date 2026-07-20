@@ -6,6 +6,7 @@ import { canViewSupplierData } from '../utils/supplierMask';
 import { ORDER_NOTE_TARGETS, canSeeNote } from '../utils/noteVisibility';
 import { QUEUE_FILTERS, statusLabel } from '../utils/orderStatus';
 import { formatNumber } from '../utils/formatNumber';
+import { pad2 } from '../utils/dateHelpers';
 import StatusFilter from './StatusFilter';
 import OrderStatusFilterBar from './OrderStatusFilterBar';
 import { applyStatusFilter, type StatusFilterValue } from '../utils/statusFilter';
@@ -25,8 +26,8 @@ function SLATimer({ deadlineAt }: { deadlineAt: string }) {
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return { text: `${pad(h)}:${pad(m)}:${pad(s)}`, expired: false, pct: Math.min(100, ((6 * 3600 - diff) / (6 * 3600)) * 100) };
+
+    return { text: `${pad2(h)}:${pad2(m)}:${pad2(s)}`, expired: false, pct: Math.min(100, ((6 * 3600 - diff) / (6 * 3600)) * 100) };
   }, [deadlineAt]);
 
   useEffect(() => {
@@ -544,6 +545,6 @@ function PwAgeCell({ createdAt }: { createdAt: string }) {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return <>{pad(h)}:{pad(m)}:{pad(s)}</>;
+
+  return <>{pad2(h)}:{pad2(m)}:{pad2(s)}</>;
 }
