@@ -215,6 +215,7 @@ export interface Order {
   categoryLabel: string;
   productName: string;
   optionalFields: OrderOptionalFields;
+  factoryUrl?: string;
   documents: OrderDocument[];
   status: OrderStatus;
   assignment: ProcurementAssignment | null;

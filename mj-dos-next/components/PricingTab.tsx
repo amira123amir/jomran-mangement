@@ -35,7 +35,11 @@ const PricingTab = ({ order, currentUser }: { order: Order; currentUser: { role:
                 <p><strong>مصاريف أخرى:</strong> {formatNumber(other)} RMB</p>
                 <p><strong>العملة المدخلة:</strong> {currency}</p>
                 <p><strong>سعر الصرف المستخدم:</strong> {exchangeRate > 0 ? `${formatNumber(exchangeRate)} (USD → RMB)` : '—'}</p>
-                <p><strong>الإجمالي:</strong> {formatNumber(offer.totalRMB)} RMB — ${formatNumber(offer.totalUSD)} USD</p>
+                <div className="pricing-total-divider" />
+                <p className="pricing-total-line"><strong>الإجمالي بالعملة المحلية RMB</strong></p>
+                <p className="pricing-total-value">{formatNumber(offer.totalRMB)} RMB</p>
+                <p className="pricing-total-line"><strong>الإجمالي بالدولار USD</strong></p>
+                <p className="pricing-total-value">$ {formatNumber(offer.totalUSD)} USD</p>
                 <p><strong>بواسطة:</strong> {offer.submittedBy}</p>
                 <p><strong>تاريخ التسجيل:</strong> {offer.submittedAt || '—'}</p>
               </div>

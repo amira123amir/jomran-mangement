@@ -23,6 +23,10 @@ export default function Sidebar() {
   const getBadge = (itemId: string) => {
     if (activePersona.department === 'procurement' && itemId === 'dashboard' && pendingCount > 0) return pendingCount;
     if (activePersona.department === 'sales' && itemId === 'new-order' && notifCount > 0) return notifCount;
+    if (activePersona.department === 'sales' && itemId === 'dashboard') {
+      const actionNeeded = orders.filter((o) => o.salesPersona === activePersona.name && ['pricing_completed', 'procurement_inquiry'].includes(o.status)).length;
+      if (actionNeeded > 0) return actionNeeded;
+    }
     if (activePersona.department === 'sales' && itemId === 'orders' && activePersona.name === 'لميس - مديرة المبيعات') {
       const actionNeeded = orders.filter((o) => ['pricing_completed', 'procurement_inquiry'].includes(o.status)).length;
       if (actionNeeded > 0) return actionNeeded;

@@ -16,6 +16,14 @@ export default function OrderInfoPanel({ order, isSales, isProcurement, showSupp
           <span className="ow-details-label">المنتج:</span>
           <span className="ow-details-value">{order.productName || '—'}</span>
         </div>
+        {order.factoryUrl && (
+          <div className="ow-details-row">
+            <span className="ow-details-label">رابط المنتج:</span>
+            <span className="ow-details-value">
+              <a href={order.factoryUrl} target="_blank" rel="noopener noreferrer" dir="ltr" style={{ color: 'var(--accent-blue)', textDecoration: 'underline', fontSize: 13 }}>{order.factoryUrl}</a>
+            </span>
+          </div>
+        )}
         <div className="ow-details-row">
           <span className="ow-details-label">الكمية:</span>
           <span className="ow-details-value">{order.optionalFields?.quantity || '—'}</span>

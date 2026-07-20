@@ -42,3 +42,28 @@
   color: var(--text-tertiary);
   letter-spacing: -0.005em;
 }
+.price-details .pricing-total-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border-hairline);
+  margin: 8px 0;
+}
+.price-details .pricing-total-line {
+  width: 100%;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+.price-details .pricing-total-line strong {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 14px;
+}
+.price-details .pricing-total-value {
+  width: 100%;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 0;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}

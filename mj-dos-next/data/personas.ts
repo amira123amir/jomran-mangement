@@ -9,6 +9,7 @@ const executiveNav = [
 ];
 
 const salesNav = [
+  { id: 'dashboard', label: 'لوحة تحكمي', icon: 'grid' },
   { id: 'new-order', label: 'إنشاء طلب عميل جديد', icon: 'shopping-cart' },
   { id: 'orders', label: 'طلبات البيع', icon: 'clipboard' },
   { id: 'clients', label: 'محفظة العملاء', icon: 'users' },

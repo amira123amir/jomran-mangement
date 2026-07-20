@@ -27,9 +27,6 @@ export default function Workspace() {
     if (department === 'sales' && activeTab === 'new-order') {
       return <SalesOrderScreen />;
     }
-    if (department === 'procurement' && activeTab === 'dashboard') {
-      return <ProcurementWorkspace />;
-    }
     if (department === 'procurement' && activeTab === 'suppliers') {
       return <SupplierDirectory />;
     }

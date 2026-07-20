@@ -94,9 +94,9 @@ export default function PricingPanel({
                 <span className="ow-pricing-approval-value">${formatNumber(latestPricing.totalUSD)} ({formatNumber(latestPricing.totalRMB)} RMB)</span>
               </div>
               <div className="ow-pricing-approval-actions">
-                <button className="ow-pricing-reject-btn" onClick={onRejectPricing}>❌ رفض التسعير — إعادة إلى المشتريات</button>
+                <button className="ow-pricing-reject-btn" onClick={onRejectPricing}><strong>❌ رفض التسعير — إعادة إلى المشتريات</strong></button>
                 <button className="ow-quotation-btn" onClick={onShowProforma}>
-                  {order.proforma ? '📄 إعادة فتح عرض السعر' : '📄 إعداد عرض السعر للعميل'}
+                  <strong>{order.proforma ? '📄 إعادة فتح عرض السعر' : '📄 إعداد عرض السعر للعميل'}</strong>
                 </button>
               </div>
             </div>

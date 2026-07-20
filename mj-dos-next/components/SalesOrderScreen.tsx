@@ -167,6 +167,7 @@ export default function SalesOrderScreen() {
       productName: productName.trim(),
       optionalFields: { ...fields, quantity },
       targetPrice: targetPrice ? parseArabicNumber(targetPrice) : undefined,
+      factoryUrl: attachmentUrl.trim() || undefined,
     });
 
     incrementOrderCount(selectedClient);

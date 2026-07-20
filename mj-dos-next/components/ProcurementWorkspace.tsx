@@ -234,6 +234,14 @@ export default function ProcurementWorkspace() {
                   <div className="pw-view-modal-body">
                     <div className="pw-view-row"><span className="pw-view-label">الشيبينغ مارك:</span><span className="pw-view-value">{vo.shippingMark}-{vo.shippingMarkSerial}</span></div>
                     <div className="pw-view-row"><span className="pw-view-label">المنتج:</span><span className="pw-view-value">{vo.productName || '—'}</span></div>
+                    {vo.factoryUrl && (
+                      <div className="pw-view-row">
+                        <span className="pw-view-label">رابط المنتج:</span>
+                        <span className="pw-view-value">
+                          <a href={vo.factoryUrl} target="_blank" rel="noopener noreferrer" className="pw-view-doc-link" dir="ltr">{vo.factoryUrl}</a>
+                        </span>
+                      </div>
+                    )}
                     <div className="pw-view-row"><span className="pw-view-label">الكمية:</span><span className="pw-view-value">{vo.optionalFields?.quantity || '—'}</span></div>
                     <div className="pw-view-row"><span className="pw-view-label">القسم:</span><span className="pw-view-value">{vo.categoryLabel || '—'}</span></div>
                     <div className="pw-view-row"><span className="pw-view-label">المسؤول:</span><span className="pw-view-value">{vo.salesPersona}</span></div>
@@ -450,6 +458,13 @@ export default function ProcurementWorkspace() {
                           <div className="pw-supplier-info">
                             <span className="pw-supplier-label">التسعير المستهدف:</span>
                             <span>${formatNumber(order.targetPrice)}</span>
+                          </div>
+                        )}
+
+                        {order.factoryUrl && (
+                          <div className="pw-supplier-info">
+                            <span className="pw-supplier-label">رابط المنتج:</span>
+                            <a href={order.factoryUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'underline', fontSize: 13, wordBreak: 'break-all' }} dir="ltr">{order.factoryUrl}</a>
                           </div>
                         )}
 

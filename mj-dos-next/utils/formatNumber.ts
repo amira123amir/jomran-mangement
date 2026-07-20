@@ -28,9 +28,7 @@ export function formatNumber(
   const unsigned = negative ? trimmed.slice(1) : trimmed;
   const [intPart, decPart] = unsigned.split('.');
 
-  // Insert thousands separators. Avoid Number(intPart) so very large integers
-  // never lose precision on the display path.
-  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const intFormatted = intPart;
   const body = decPart ? `${intFormatted}.${decPart}` : intFormatted;
   return negative ? `-${body}` : body;
 }
