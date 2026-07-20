@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useClientRegistryStore } from '../stores/clientRegistryStore';
 import { useExchangeRateStore } from '../stores/exchangeRateStore';
 import { useAuditStore } from '../stores/auditStore';
@@ -378,7 +378,8 @@ export default function SalesOrderScreen() {
                       </thead>
                       <tbody>
                         {visibleOrders.map((order) => (
-                          <tr key={order.id}>
+                          <React.Fragment key={order.id}>
+                          <tr>
                             <td className="pw-registry-num">#{order.orderNumber}</td>
                             <td className="pw-registry-mark">{order.shippingMark}-{order.shippingMarkSerial}</td>
                             <td className="pw-registry-product">{order.clientName}</td>
@@ -403,6 +404,46 @@ export default function SalesOrderScreen() {
                               </div>
                             </td>
                           </tr>
+                          {expandedOrderId === order.id && (
+                            <tr>
+                              <td colSpan={11}>
+                                <div className="sos-order-expanded">
+                                  <div className="sos-order-meta">
+                                    {[
+                                      { label: 'العميل', value: order.clientName },
+                                      { label: 'المنتج', value: order.productName },
+                                      { label: 'القسم', value: order.categoryLabel || '—' },
+                                      { label: 'البائع', value: order.salesPersona },
+                                      { label: 'المشتريات', value: order.claim?.claimedBy || order.assignment?.assignedTo || '—' },
+                                      { label: 'الكمية', value: order.optionalFields?.quantity || '—' },
+                                      { label: 'السعر المستهدف', value: order.targetPrice !== undefined ? `$${formatNumber(order.targetPrice)}` : '—' },
+                                      { label: 'السعر المعتمد', value: (() => { const lp = order.pricingHistory?.length ? order.pricingHistory[order.pricingHistory.length - 1] : null; return lp ? `$${formatNumber(lp.totalUSD)}` : '—'; })() },
+                                    ].map((f, i) => (
+                                      <span key={i} className="sos-order-meta-item"><strong>{f.label}:</strong> {f.value}</span>
+                                    ))}
+                                  </div>
+                                  <div className="sos-order-notes">
+                                    <strong>الملاحظات ({order.notes.filter((n) => canSeeNote(n, persona.name, persona.department)).length}):</strong>
+                                    {order.notes.filter((n) => canSeeNote(n, persona.name, persona.department)).length === 0 ? (
+                                      <div style={{ fontSize: 12, color: '#94a3b8' }}>لا توجد ملاحظات متاحة</div>
+                                    ) : (
+                                      order.notes.filter((n) => canSeeNote(n, persona.name, persona.department)).map((note) => (
+                                        <div key={note.id} className="sos-note-item">
+                                          <div className="sos-note-header">
+                                            <span className="sos-note-author">{note.authorPersona}</span>
+                                            <span className="sos-note-target">→ {note.targetPersona === ALL_PEOPLE ? '👥 الجميع' : note.targetPersona}</span>
+                                            <span className="sos-note-time">{note.createdAt}</span>
+                                          </div>
+                                          <div className="sos-note-content">{note.content}</div>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          </React.Fragment>
                         ))}
                       </tbody>
                     </table>

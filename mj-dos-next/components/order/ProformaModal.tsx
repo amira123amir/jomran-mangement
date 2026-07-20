@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { formatNumber } from '../../utils/formatNumber';
 import { parseArabicNumber } from '../../utils/arabicNumerals';
 import type { Order, Persona, QuotationCurrency, QuotationTemplate, OrderPricing } from '../../types';
@@ -41,6 +42,7 @@ export default function ProformaModal({
   onExportOfficialInvoice,
   onClose,
 }: ProformaModalProps) {
+  const [profitError, setProfitError] = useState('');
   if (!isOpen || !latestPricing) return null;
 
   const baseRMB = latestPricing.totalRMB;
@@ -54,6 +56,15 @@ export default function ProformaModal({
   const existingProforma = order.proforma;
   const firstImage = order.documents.find(d => d.type === 'attachment' && d.url.startsWith('blob:'));
   const canConfirm = pct > 0 || fixed > 0 || !!existingProforma;
+
+  const handleSend = (format: 'pdf' | 'xlsx') => {
+    if (pct <= 0 && fixed <= 0 && !existingProforma) {
+      setProfitError('يجب إدخال نسبة ربح أو مبلغ ثابت قبل الإرسال.');
+      return;
+    }
+    setProfitError('');
+    onConfirmAndSend(format);
+  };
 
   return (
     <div className="ow-proforma-modal" role="dialog" aria-modal="false" aria-label="إعداد عرض السعر للزبون">
@@ -163,12 +174,15 @@ export default function ProformaModal({
               ✅ آخر إعداد للعرض بتاريخ {existingProforma.submittedAt} — يمكنك تعديل الحقول أعلاه وإعادة التصدير في أي وقت.
             </div>
           )}
+          {profitError && (
+            <p className="ow-proforma-profit-error">{profitError}</p>
+          )}
         </div>
         <div className="ow-proforma-footer">
-          <button type="button" className="ow-proforma-submit" onClick={() => onConfirmAndSend('pdf')} disabled={!canConfirm} title="تأكيد وحفظ العرض ثم تصدير PDF">
+          <button type="button" className="ow-proforma-submit" onClick={() => handleSend('pdf')} title="تأكيد وحفظ العرض ثم تصدير PDF">
             ✅ تأكيد وإرسال — PDF
           </button>
-          <button type="button" className="ow-proforma-submit" onClick={() => onConfirmAndSend('xlsx')} disabled={!canConfirm} title="تأكيد وحفظ العرض ثم تصدير Excel">
+          <button type="button" className="ow-proforma-submit" onClick={() => handleSend('xlsx')} title="تأكيد وحفظ العرض ثم تصدير Excel">
             ✅ تأكيد وإرسال — Excel
           </button>
           {order.status === 'quotation_presented' && (
