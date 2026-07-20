@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { formatNumber } from '../../utils/formatNumber';
-import { parseArabicNumber } from '../../utils/arabicNumerals';
-import type { Order, Persona, QuotationCurrency, QuotationTemplate, OrderPricing } from '../../types';
+import { allProductsPriced } from '../../utils/orderProducts';
+import type { Order, QuotationCurrency, QuotationTemplate, ProformaLine } from '../../types';
 
 interface ProformaModalProps {
   isOpen: boolean;
   order: Order;
-  latestPricing: OrderPricing | null;
+  // Per-product quote lines computed by the parent from live profit inputs.
+  lines: ProformaLine[];
   isProcurement: boolean;
-  profitPercent: string;
-  profitFixed: string;
+  profitPercent: Record<string, string>;
+  profitFixed: Record<string, string>;
   profitCurrency: QuotationCurrency;
   exportCurrency: QuotationCurrency;
   template: QuotationTemplate;
-  onProfitPercentChange: (val: string) => void;
-  onProfitFixedChange: (val: string) => void;
+  onProfitPercentChange: (productId: string, val: string) => void;
+  onProfitFixedChange: (productId: string, val: string) => void;
   onProfitCurrencyChange: (val: QuotationCurrency) => void;
   onExportCurrencyChange: (val: QuotationCurrency) => void;
   onTemplateChange: (val: QuotationTemplate) => void;
@@ -26,7 +27,7 @@ interface ProformaModalProps {
 export default function ProformaModal({
   isOpen,
   order,
-  latestPricing,
+  lines,
   isProcurement,
   profitPercent,
   profitFixed,
@@ -43,23 +44,19 @@ export default function ProformaModal({
   onClose,
 }: ProformaModalProps) {
   const [profitError, setProfitError] = useState('');
-  if (!isOpen || !latestPricing) return null;
+  if (!isOpen || !allProductsPriced(order)) return null;
 
-  const baseRMB = latestPricing.totalRMB;
-  const baseUSD = latestPricing.totalUSD;
-  const er = latestPricing.exchangeRateUsed || 1;
-  const pct = parseArabicNumber(profitPercent);
-  const fixed = parseArabicNumber(profitFixed);
-  const fixedRMB = profitCurrency === 'USD' ? fixed * er : fixed;
-  const finalRMB = baseRMB + (baseRMB * pct / 100) + fixedRMB;
-  const finalUSD = er > 0 ? +(finalRMB / er).toFixed(3) : 0;
+  const baseRMB = +lines.reduce((s, l) => s + l.baseTotalRMB, 0).toFixed(3);
+  const baseUSD = +lines.reduce((s, l) => s + l.baseTotalUSD, 0).toFixed(3);
+  const finalRMB = +lines.reduce((s, l) => s + l.finalPriceRMB, 0).toFixed(3);
+  const finalUSD = +lines.reduce((s, l) => s + l.finalPriceUSD, 0).toFixed(3);
   const existingProforma = order.proforma;
   const firstImage = order.documents.find(d => d.type === 'attachment' && d.url.startsWith('blob:'));
-  const canConfirm = pct > 0 || fixed > 0 || !!existingProforma;
+  const anyProfit = lines.some((l) => l.profitPercent > 0 || l.profitFixed > 0);
 
   const handleSend = (format: 'pdf' | 'xlsx') => {
-    if (pct <= 0 && fixed <= 0 && !existingProforma) {
-      setProfitError('يجب إدخال نسبة ربح أو مبلغ ثابت قبل الإرسال.');
+    if (!anyProfit && !existingProforma) {
+      setProfitError('يجب إدخال نسبة ربح أو مبلغ ثابت لمنتج واحد على الأقل قبل الإرسال.');
       return;
     }
     setProfitError('');
@@ -83,36 +80,55 @@ export default function ProformaModal({
             <div className="ow-proforma-row"><span className="ow-proforma-label">{isProcurement ? 'رقم الطلب:' : 'الزبون:'}</span><span className="ow-proforma-value">{isProcurement ? `#${order.orderNumber}` : order.clientName}</span></div>
             <div className="ow-proforma-row"><span className="ow-proforma-label">رقم الطلب:</span><span className="ow-proforma-value">#{order.orderNumber}</span></div>
             <div className="ow-proforma-row"><span className="ow-proforma-label">الشيبينغ مارك:</span><span className="ow-proforma-value">{order.shippingMark}-{order.shippingMarkSerial}</span></div>
-            <div className="ow-proforma-row"><span className="ow-proforma-label">المنتج:</span><span className="ow-proforma-value">{order.productName}</span></div>
-            <div className="ow-proforma-row"><span className="ow-proforma-label">الكمية:</span><span className="ow-proforma-value">{order.optionalFields?.quantity || '—'}</span></div>
+            <div className="ow-proforma-row"><span className="ow-proforma-label">عدد المنتجات:</span><span className="ow-proforma-value">{order.products.length}</span></div>
           </div>
 
-          <div className="ow-proforma-cost">
-            <span className="ow-proforma-cost-title">💰 التكلفة الأساسية</span>
-            <div className="ow-proforma-cost-values">
-              <span className="ow-proforma-cost-rmb">¥ {formatNumber(baseRMB)} RMB</span>
-              <span className="ow-proforma-cost-usd">$ {formatNumber(baseUSD)} USD</span>
+          {/* Shared fixed-profit currency for all lines. */}
+          <div className="ow-proforma-profit">
+            <div className="ow-proforma-profit-title">💱 عملة المبلغ الثابت للربح</div>
+            <div className="ow-proforma-profit-controls">
+              <select className="ow-pricing-currency-select-sm" value={profitCurrency} onChange={(e) => onProfitCurrencyChange(e.target.value as QuotationCurrency)}>
+                <option value="RMB">RMB (¥)</option>
+                <option value="USD">USD ($)</option>
+              </select>
             </div>
           </div>
 
-          <div className="ow-proforma-profit">
-            <div className="ow-proforma-profit-title">📈 إضافة الربح</div>
-            <div className="ow-proforma-profit-controls">
-              <div className="ow-proforma-profit-group">
-                <label className="ow-proforma-profit-label">نسبة ربح %</label>
-                <input className="ow-proforma-profit-input" type="text" inputMode="decimal" value={profitPercent} onChange={(e) => onProfitPercentChange(e.target.value)} placeholder="0" min="0" />
-              </div>
-              <div className="ow-proforma-profit-sep">أو</div>
-              <div className="ow-proforma-profit-group">
-                <label className="ow-proforma-profit-label">مبلغ ثابت</label>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input className="ow-proforma-profit-input" type="text" inputMode="decimal" value={profitFixed} onChange={(e) => onProfitFixedChange(e.target.value)} placeholder="0" min="0" style={{ flex: 1 }} />
-                  <select className="ow-pricing-currency-select-sm" value={profitCurrency} onChange={(e) => onProfitCurrencyChange(e.target.value as QuotationCurrency)}>
-                    <option value="RMB">RMB (¥)</option>
-                    <option value="USD">USD ($)</option>
-                  </select>
+          {/* Per-product profit editor — one row per product. */}
+          <div className="ow-proforma-lines">
+            <div className="ow-proforma-profit-title">📈 الربح لكل منتج</div>
+            {order.products.map((p, idx) => {
+              const line = lines.find((l) => l.productId === p.id);
+              return (
+                <div key={p.id} className="ow-proforma-line">
+                  <div className="ow-proforma-line-head">
+                    <strong>{idx + 1}. {p.productName}</strong>
+                    <span className="ow-proforma-line-base">التكلفة: ¥ {formatNumber(line?.baseTotalRMB ?? 0)} (${formatNumber(line?.baseTotalUSD ?? 0)})</span>
+                  </div>
+                  <div className="ow-proforma-profit-controls">
+                    <div className="ow-proforma-profit-group">
+                      <label className="ow-proforma-profit-label">نسبة ربح %</label>
+                      <input className="ow-proforma-profit-input" type="text" inputMode="decimal" value={profitPercent[p.id] || ''} onChange={(e) => onProfitPercentChange(p.id, e.target.value)} placeholder="0" min="0" />
+                    </div>
+                    <div className="ow-proforma-profit-sep">أو</div>
+                    <div className="ow-proforma-profit-group">
+                      <label className="ow-proforma-profit-label">مبلغ ثابت ({profitCurrency})</label>
+                      <input className="ow-proforma-profit-input" type="text" inputMode="decimal" value={profitFixed[p.id] || ''} onChange={(e) => onProfitFixedChange(p.id, e.target.value)} placeholder="0" min="0" />
+                    </div>
+                    <div className="ow-proforma-line-final">
+                      = ¥ {formatNumber(line?.finalPriceRMB ?? 0)} (${formatNumber(line?.finalPriceUSD ?? 0)})
+                    </div>
+                  </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
+
+          <div className="ow-proforma-cost">
+            <span className="ow-proforma-cost-title">💰 إجمالي التكلفة الأساسية</span>
+            <div className="ow-proforma-cost-values">
+              <span className="ow-proforma-cost-rmb">¥ {formatNumber(baseRMB)} RMB</span>
+              <span className="ow-proforma-cost-usd">$ {formatNumber(baseUSD)} USD</span>
             </div>
           </div>
 
@@ -153,7 +169,7 @@ export default function ProformaModal({
           </div>
 
           <div className="ow-proforma-final">
-            <span className="ow-proforma-final-label">السعر النهائي للزبون:</span>
+            <span className="ow-proforma-final-label">الإجمالي النهائي للزبون:</span>
             <div className="ow-proforma-final-values">
               {exportCurrency === 'RMB' ? (
                 <span className="ow-proforma-final-rmb">¥ {formatNumber(finalRMB)} RMB</span>
@@ -163,9 +179,9 @@ export default function ProformaModal({
             </div>
           </div>
 
-          {pct > 0 || fixed > 0 ? (
+          {anyProfit ? (
             <div className="ow-proforma-summary">
-              <span>الربح: {pct > 0 ? `${formatNumber(pct)}%` : ''}{pct > 0 && fixed > 0 ? ' + ' : ''}{fixed > 0 ? `${formatNumber(fixed)} ${profitCurrency}` : ''} = {formatNumber(finalRMB - baseRMB)} RMB (${formatNumber((finalRMB - baseRMB) / er)} USD)</span>
+              <span>إجمالي الربح: {formatNumber(finalRMB - baseRMB)} RMB (${formatNumber(finalUSD - baseUSD)} USD)</span>
             </div>
           ) : null}
 

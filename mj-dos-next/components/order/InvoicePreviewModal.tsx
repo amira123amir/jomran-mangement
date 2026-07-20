@@ -27,7 +27,7 @@ export default function InvoicePreviewModal({
   const proforma = order.proforma;
   const existing = order.officialInvoice;
   const currency = proforma.exportCurrency || 'USD';
-  const finalPrice = currency === 'USD' ? proforma.finalPriceUSD : proforma.finalPriceRMB;
+  const finalPrice = currency === 'USD' ? proforma.grandTotalUSD : proforma.grandTotalRMB;
   const sym = currency === 'USD' ? '$' : '¥';
 
   return (
@@ -42,8 +42,7 @@ export default function InvoicePreviewModal({
             <div className="ow-proforma-row"><span className="ow-proforma-label">الزبون:</span><span className="ow-proforma-value">{order.clientName}</span></div>
             <div className="ow-proforma-row"><span className="ow-proforma-label">رقم الطلب:</span><span className="ow-proforma-value">#{order.orderNumber}</span></div>
             <div className="ow-proforma-row"><span className="ow-proforma-label">الشيبينغ مارك:</span><span className="ow-proforma-value">{order.shippingMark}-{order.shippingMarkSerial}</span></div>
-            <div className="ow-proforma-row"><span className="ow-proforma-label">المنتج:</span><span className="ow-proforma-value">{order.productName}</span></div>
-            <div className="ow-proforma-row"><span className="ow-proforma-label">الكمية:</span><span className="ow-proforma-value">{order.optionalFields?.quantity || '—'}</span></div>
+            <div className="ow-proforma-row"><span className="ow-proforma-label">عدد المنتجات:</span><span className="ow-proforma-value">{order.products.length}</span></div>
             <div className="ow-proforma-row"><span className="ow-proforma-label">العملة:</span><span className="ow-proforma-value">{currency}</span></div>
             <div className="ow-proforma-row"><span className="ow-proforma-label">القالب:</span><span className="ow-proforma-value">Template {proforma.template || 1}</span></div>
             {existing && (

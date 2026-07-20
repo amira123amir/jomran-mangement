@@ -14,6 +14,10 @@ export function createFinancialSlice(set: any, get: any): FinancialSlice {
       const order = get().orders.find((o: any) => o.id === orderId);
       if (!order) return { ok: false, error: 'الطلب غير موجود' };
 
+      const productId = pricingData.productId;
+      const product = order.products.find((p: any) => p.id === productId);
+      if (!product) return { ok: false, error: 'المنتج غير موجود في الطلب.' };
+
       const extraRMB = (pricingData.internalChinaShippingRMB || 0)
         + (pricingData.miscellaneousCostsRMB || 0)
         + (pricingData.otherCostsRMB || 0);
@@ -21,7 +25,8 @@ export function createFinancialSlice(set: any, get: any): FinancialSlice {
       const exchangeRate = pricingData.exchangeRateUsed;
       const totalUSD = exchangeRate > 0 ? +(totalRMB / exchangeRate).toFixed(3) : 0;
 
-      const iteration = (order.pricingHistory?.length || 0) + 1;
+      // Iteration is counted PER product.
+      const iteration = (order.pricingHistory || []).filter((p: any) => p.productId === productId).length + 1;
 
       const pricing: OrderPricing = {
         ...pricingData,
@@ -33,20 +38,43 @@ export function createFinancialSlice(set: any, get: any): FinancialSlice {
         currency: pricingData.currency || 'RMB',
       };
 
-      const result = get().transitionOrder(orderId, 'pricing_completed', {
-        actor,
-        mutate: (o: any) => ({ pricingHistory: [...(o.pricingHistory || []), pricing] }),
-      });
-      if (!result.ok) return result;
+      // Determine whether THIS submission completes pricing for the whole order:
+      // every product must have at least one pricing version once this lands.
+      const priced = new Set((order.pricingHistory || []).map((p: any) => p.productId));
+      priced.add(productId);
+      const allPriced = order.products.every((p: any) => priced.has(p.id));
+
+      let result: any;
+      if (allPriced) {
+        result = get().transitionOrder(orderId, 'pricing_completed', {
+          actor,
+          mutate: (o: any) => ({ pricingHistory: [...(o.pricingHistory || []), pricing] }),
+        });
+        if (!result.ok) return result;
+      } else {
+        // Not all products priced yet — record the version but keep the order in
+        // pricing_in_progress (no status transition).
+        let updated: Order | undefined;
+        set((s: any) => ({
+          orders: s.orders.map((o: any) => {
+            if (o.id !== orderId) return o;
+            updated = { ...o, pricingHistory: [...(o.pricingHistory || []), pricing], updatedAt: timestamp };
+            return updated;
+          }),
+        }));
+        result = { ok: true, order: updated };
+      }
 
       if (order.salesPersona) {
+        const remaining = order.products.filter((p: any) => !priced.has(p.id)).length;
+        const progressNote = allPriced ? 'اكتمل تسعير جميع المنتجات' : `تبقّى ${remaining} منتج بلا تسعير`;
         const notif: Notification = {
           id: uid('notif'),
           orderId,
           orderNumber: order.orderNumber,
           shippingMark: order.shippingMark,
           type: 'pricing',
-          message: `💰 تسعير جديد #${iteration} للطلب #${order.orderNumber} (${order.shippingMark}) — الإجمالي: $${totalUSD} (${totalRMB} RMB) — ملاحظة: هذه إحصائية خط أنابيب فقط`,
+          message: `💰 تسعير جديد #${iteration} للمنتج «${product.productName}» ضمن الطلب #${order.orderNumber} (${order.shippingMark}) — ${totalUSD}$ (${totalRMB} RMB) — ${progressNote} — ملاحظة: إحصائية خط أنابيب فقط`,
           fromPersona: order.claim?.claimedBy || order.assignment?.assignedTo || '',
           forPersona: order.salesPersona,
           read: false,

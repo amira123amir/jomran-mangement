@@ -1,4 +1,4 @@
-import type { Order, WorkflowTransition } from '../../types';
+import type { Order, OrderProduct, WorkflowTransition } from '../../types';
 import type { OrderSlice } from './orderSlice';
 import { formatNow, formatDeadlineDisplay, buildDeadlineAt } from '../../utils/dateHelpers';
 import { uid } from '../../utils/helpers';
@@ -12,7 +12,13 @@ export function createOrderSlice(set: any, get: any): OrderSlice {
       const { date, time, timestamp } = formatNow();
       const id = uid('order');
       const orderNumber = 1000 + get().orders.length + 1;
-      const { targetPrice, ...rest } = data;
+      const { products: productsInput, ...rest } = data;
+      // Assign a stable id to each product so pricing/proforma lines can
+      // reference it for the life of the order.
+      const products: OrderProduct[] = (productsInput || []).map((p: Omit<OrderProduct, 'id'>) => ({
+        ...p,
+        id: uid('product'),
+      }));
       const initialTransition: WorkflowTransition = {
         id: uid('wf'),
         from: null,
@@ -29,6 +35,7 @@ export function createOrderSlice(set: any, get: any): OrderSlice {
         ...rest,
         id,
         orderNumber,
+        products,
         status: 'waiting_for_assignment',
         claim: null,
         pricingHistory: [],
@@ -44,7 +51,6 @@ export function createOrderSlice(set: any, get: any): OrderSlice {
         workflowHistory: [initialTransition],
         createdAt: timestamp,
         updatedAt: timestamp,
-        ...(targetPrice !== undefined ? { targetPrice } : {}),
       };
       set((s: any) => ({ orders: [...s.orders, order] }));
       return order;
@@ -56,7 +62,7 @@ export function createOrderSlice(set: any, get: any): OrderSlice {
       get().orders.filter((o: any) => o.salesPersona === personaName),
 
     getOrdersByCategory: (category) =>
-      get().orders.filter((o: any) => o.category === category),
+      get().orders.filter((o: any) => o.products.some((p: OrderProduct) => p.category === category)),
 
     getPendingOrders: () =>
       get().orders.filter((o: any) => o.status === 'waiting_for_assignment'),

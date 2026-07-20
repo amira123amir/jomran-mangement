@@ -53,6 +53,22 @@ export interface OrderOptionalFields {
   [key: string]: string;
 }
 
+// ─── Products ──────────────────────────────────────────────────────────────
+// An order carries one OR MORE products. Each product owns its own category,
+// technical (optional) fields, quantity, and optional target price. Pricing
+// and the customer quotation are computed PER product (see OrderPricing.productId
+// and ProformaLine.productId) then summed into the order grand total.
+export interface OrderProduct {
+  id: string;
+  productName: string;
+  category: string;
+  categoryLabel: string;
+  quantity: number;
+  optionalFields: OrderOptionalFields;
+  targetPrice?: number;
+  factoryUrl?: string;
+}
+
 export type SupplierCategory = 'lighting' | 'electrical' | 'steel' | 'other';
 
 export interface Supplier {
@@ -211,17 +227,18 @@ export interface Order {
   shippingMarkSerial: number;
   salesPersona: string;
   salesPersonaDept: string;
-  category: string;
-  categoryLabel: string;
-  productName: string;
-  optionalFields: OrderOptionalFields;
-  factoryUrl?: string;
+  // An order holds one or more products. All product-level metadata
+  // (name, category, quantity, technical fields, target price, factory URL)
+  // lives on each OrderProduct.
+  products: OrderProduct[];
   documents: OrderDocument[];
   status: OrderStatus;
   assignment: ProcurementAssignment | null;
   claim: ProcurementClaim | null;
+  // Flat list of pricing versions across ALL products. Each entry carries a
+  // productId; iteration is counted per product. Group by productId at read
+  // time (see utils/pricing helpers / PricingTab).
   pricingHistory: OrderPricing[];
-  targetPrice?: number;
   proforma: ProformaInvoice | null;
   revenue: OrderRevenue | null;
   supplierData: SupplierData | null;
@@ -269,6 +286,9 @@ export interface ProcurementClaim {
 }
 
 export interface OrderPricing {
+  // The product this pricing version belongs to (OrderProduct.id).
+  productId: string;
+  // Iteration is counted PER product, not per order.
   iteration: number;
   factoryPriceRMB: number;
   shippingCostRMB: number;
@@ -294,7 +314,11 @@ export interface OrderRevenue {
 export type QuotationCurrency = 'USD' | 'RMB';
 export type QuotationTemplate = 1 | 2;
 
-export interface ProformaInvoice {
+// One customer-quote line, computed from a single product's latest pricing
+// plus that product's profit margin.
+export interface ProformaLine {
+  productId: string;
+  productName: string;
   baseTotalRMB: number;
   baseTotalUSD: number;
   profitPercent: number;
@@ -302,6 +326,14 @@ export interface ProformaInvoice {
   profitFixedCurrency: QuotationCurrency;
   finalPriceRMB: number;
   finalPriceUSD: number;
+}
+
+export interface ProformaInvoice {
+  // Per-product quote lines. The customer quotation is the sum of these.
+  lines: ProformaLine[];
+  // Grand totals across all lines.
+  grandTotalRMB: number;
+  grandTotalUSD: number;
   exportCurrency: QuotationCurrency;
   template: QuotationTemplate;
   submittedBy: string;

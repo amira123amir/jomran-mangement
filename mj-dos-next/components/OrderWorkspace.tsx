@@ -16,7 +16,10 @@ import { parseArabicNumber } from '../utils/arabicNumerals';
 import { pad2 } from '../utils/dateHelpers';
 import { formatNumber } from '../utils/formatNumber';
 import { useModal } from '../hooks/useModal';
-import type { QuotationCurrency, QuotationTemplate, Department, Order } from '../types';
+import type { QuotationCurrency, QuotationTemplate, Department, ProformaLine } from '../types';
+import {
+  latestPricingForProduct, pricingForProduct, unpricedProducts, allProductsPriced, orderBaseTotals,
+} from '../utils/orderProducts';
 import OrderTopBar from './order/OrderTopBar';
 import OrderInfoPanel from './order/OrderInfoPanel';
 import OrderTimelinePanel from './order/OrderTimelinePanel';
@@ -78,6 +81,8 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
   const [supplierPhone, setSupplierPhone] = useState('');
   const [procurementNotes, setProcurementNotes] = useState('');
   const [showPriceForm, setShowPriceForm] = useState(false);
+  // Which product the pricing form is currently entering a price for.
+  const [pricingProductId, setPricingProductId] = useState('');
   const [exchangeRateInput, setExchangeRateInput] = useState('');
   const [itemCurrencies, setItemCurrencies] = useState<Record<string, 'RMB' | 'USD'>>({
     factoryPrice: 'RMB',
@@ -88,8 +93,9 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showProforma, setShowProforma] = useState(false);
-  const [proformaProfitPercent, setProformaProfitPercent] = useState('');
-  const [proformaProfitFixed, setProformaProfitFixed] = useState('');
+  // Per-product profit inputs, keyed by product id. Missing keys = 0.
+  const [proformaProfitPercent, setProformaProfitPercent] = useState<Record<string, string>>({});
+  const [proformaProfitFixed, setProformaProfitFixed] = useState<Record<string, string>>({});
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [archiveReason, setArchiveReason] = useState('');
@@ -234,9 +240,14 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
     const mc = toRmb(miscCosts, itemCurrencies.miscCosts);
     const oc = toRmb(otherCosts, itemCurrencies.otherCosts);
     if (!fp || fp <= 0 || !er) return;
+    // Resolve the target product: explicit selection, else first unpriced, else first.
+    const targetProductId = pricingProductId
+      || unpricedProducts(order)[0]?.id
+      || order.products[0]?.id;
+    if (!targetProductId) { alert('لا يوجد منتج لتسعيره.'); return; }
     const result = submitPricing(
       order.id,
-      { factoryPriceRMB: fp, shippingCostRMB: sc, internalChinaShippingRMB: ics, miscellaneousCostsRMB: mc, otherCostsRMB: oc, totalRMB: 0, exchangeRateUsed: er, totalUSD: 0, submittedBy: persona.name, currency: 'RMB' },
+      { productId: targetProductId, factoryPriceRMB: fp, shippingCostRMB: sc, internalChinaShippingRMB: ics, miscellaneousCostsRMB: mc, otherCostsRMB: oc, totalRMB: 0, exchangeRateUsed: er, totalUSD: 0, submittedBy: persona.name, currency: 'RMB' },
       { name: persona.name, role: persona.role, dept: persona.department },
     );
     if (!result.ok) {
@@ -246,7 +257,20 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
     if (supplierName.trim() || supplierPhone.trim() || procurementNotes.trim()) {
       updateSupplierData(order.id, { factoryName: supplierName.trim(), factoryPhone: supplierPhone.trim(), procurementNotes: procurementNotes.trim() }, persona.name);
     }
-    setShowPriceForm(false);
+    // Reset amount inputs and move to the next unpriced product (if any).
+    const orderAfter = useOrderStore.getState().orders.find((o) => o.id === order.id);
+    const nextUnpriced = orderAfter ? unpricedProducts(orderAfter) : [];
+    setFactoryPrice('');
+    setInternalChinaShipping('');
+    setShippingCost('');
+    setMiscCosts('');
+    setOtherCosts('');
+    if (nextUnpriced.length > 0) {
+      setPricingProductId(nextUnpriced[0].id);
+    } else {
+      setShowPriceForm(false);
+      setPricingProductId('');
+    }
   };
   const handleMarkChange = () => { requestShippingMarkChange(order.id, persona.name, order.shippingMark, newMark.trim()); setShowMarkChange(false); };
   const handleArchiveOrder = () => {
@@ -261,30 +285,52 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
     setConfirmDelete(false);
     setArchiveReason('');
   };
+  // Build one proforma line per product from its latest pricing plus that
+  // product's profit inputs. Products with no pricing yet are skipped.
+  const computeProformaLines = (): ProformaLine[] => {
+    if (!order) return [];
+    const lines: ProformaLine[] = [];
+    for (const p of order.products) {
+      const lp = latestPricingForProduct(order, p.id);
+      if (!lp) continue;
+      const baseTotalRMB = lp.totalRMB;
+      const baseTotalUSD = lp.totalUSD;
+      const er = lp.exchangeRateUsed || 1;
+      const pct = parseArabicNumber(proformaProfitPercent[p.id] || '');
+      const fixed = parseArabicNumber(proformaProfitFixed[p.id] || '');
+      const fixedRMB = proformaProfitCurrency === 'USD' ? fixed * er : fixed;
+      const finalRMB = baseTotalRMB + (baseTotalRMB * pct / 100) + fixedRMB;
+      const finalUSD = er > 0 ? +(finalRMB / er).toFixed(3) : 0;
+      lines.push({
+        productId: p.id,
+        productName: p.productName,
+        baseTotalRMB,
+        baseTotalUSD,
+        profitPercent: pct,
+        profitFixed: fixed,
+        profitFixedCurrency: proformaProfitCurrency,
+        finalPriceRMB: +finalRMB.toFixed(3),
+        finalPriceUSD: finalUSD,
+      });
+    }
+    return lines;
+  };
+
   const computeProformaFinals = () => {
-    if (!latestPricing) return null;
-    const baseTotalRMB = latestPricing.totalRMB;
-    const baseTotalUSD = latestPricing.totalUSD;
-    const er = latestPricing.exchangeRateUsed || 1;
-    const pct = parseArabicNumber(proformaProfitPercent);
-    const fixed = parseArabicNumber(proformaProfitFixed);
-    const fixedRMB = proformaProfitCurrency === 'USD' ? fixed * er : fixed;
-    const finalRMB = baseTotalRMB + (baseTotalRMB * pct / 100) + fixedRMB;
-    const finalUSD = er > 0 ? +(finalRMB / er).toFixed(3) : 0;
-    return { baseTotalRMB, baseTotalUSD, pct, fixed, finalRMB: +finalRMB.toFixed(3), finalUSD };
+    const lines = computeProformaLines();
+    if (lines.length === 0) return null;
+    const grandTotalRMB = +lines.reduce((s, l) => s + l.finalPriceRMB, 0).toFixed(3);
+    const grandTotalUSD = +lines.reduce((s, l) => s + l.finalPriceUSD, 0).toFixed(3);
+    return { lines, grandTotalRMB, grandTotalUSD };
   };
 
   const persistProforma = () => {
     const totals = computeProformaFinals();
     if (!totals) return null;
     const proforma = {
-      baseTotalRMB: totals.baseTotalRMB,
-      baseTotalUSD: totals.baseTotalUSD,
-      profitPercent: totals.pct,
-      profitFixed: totals.fixed,
-      profitFixedCurrency: proformaProfitCurrency,
-      finalPriceRMB: totals.finalRMB,
-      finalPriceUSD: totals.finalUSD,
+      lines: totals.lines,
+      grandTotalRMB: totals.grandTotalRMB,
+      grandTotalUSD: totals.grandTotalUSD,
       exportCurrency: proformaExportCurrency,
       template: proformaTemplate,
       submittedBy: persona.name,
@@ -298,7 +344,7 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
       persona.name,
       persona.department,
       `📄 إصدار عرض سعر للطلب #${order.orderNumber} — العملة: ${proformaExportCurrency} — القالب: ${proformaTemplate}`,
-      `الإجمالي: ${formatNumber(totals.finalRMB)} RMB ($${formatNumber(totals.finalUSD)})`,
+      `عدد البنود: ${totals.lines.length} | الإجمالي: ${formatNumber(totals.grandTotalRMB)} RMB ($${formatNumber(totals.grandTotalUSD)})`,
     );
     return proforma;
   };
@@ -500,11 +546,11 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
           {isProcurement && !showPriceForm && (
             <button className="add-price-btn" onClick={() => setShowPriceForm(true)}>💰 تسعير</button>
           )}
-          {isSales && (order.status === 'pricing_completed' || order.status === 'quotation_presented') && latestPricing && (
+          {isSales && (order.status === 'pricing_completed' || order.status === 'quotation_presented') && allProductsPriced(order) && (
             <div className="ow-pricing-approval-bar">
               <div className="ow-pricing-approval-summary">
-                <span className="ow-pricing-approval-label">📋 التسعير الحالي:</span>
-                <span className="ow-pricing-approval-value">${formatNumber(latestPricing.totalUSD)} ({formatNumber(latestPricing.totalRMB)} RMB)</span>
+                <span className="ow-pricing-approval-label">📋 إجمالي التسعير ({order.products.length} منتج):</span>
+                <span className="ow-pricing-approval-value">${formatNumber(orderBaseTotals(order).usd)} ({formatNumber(orderBaseTotals(order).rmb)} RMB)</span>
               </div>
               <div className="ow-pricing-approval-actions">
                 <button className="ow-pricing-reject-btn" onClick={() => setShowRejectDialog(true)}>❌ رفض التسعير — إعادة إلى المشتريات</button>
@@ -520,6 +566,25 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
           {showPriceForm && (
             <div className="ow-pricing-form" style={{ marginTop: 16 }}>
               <div className="ow-pricing-form-title">💰 إدخال تسعيرة جديدة</div>
+              <div className="ow-pricing-form-row">
+                <div className="ow-pricing-form-group">
+                  <label className="ow-pricing-form-label">المنتج المُسعّر <span className="req">*</span></label>
+                  <select
+                    className="ow-pricing-form-input"
+                    value={pricingProductId || unpricedProducts(order)[0]?.id || order.products[0]?.id || ''}
+                    onChange={(e) => setPricingProductId(e.target.value)}
+                  >
+                    {order.products.map((p, i) => {
+                      const priced = pricingForProduct(order, p.id).length > 0;
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {i + 1}. {p.productName} {priced ? '✓ (مُسعّر — تحديث)' : '— بانتظار التسعير'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
               <div className="ow-pricing-form-row">
                 <div className="ow-pricing-form-group" style={{ maxWidth: 250 }}>
                   <label className="ow-pricing-form-label">سعر الصرف (USD → RMB)</label>
@@ -643,15 +708,15 @@ export default function OrderWorkspace({ orderId, initialSection }: { orderId: s
       <ProformaModal
         isOpen={showProforma}
         order={order}
-        latestPricing={latestPricing}
+        lines={computeProformaLines()}
         isProcurement={isProcurement}
         profitPercent={proformaProfitPercent}
         profitFixed={proformaProfitFixed}
         profitCurrency={proformaProfitCurrency}
         exportCurrency={proformaExportCurrency}
         template={proformaTemplate}
-        onProfitPercentChange={setProformaProfitPercent}
-        onProfitFixedChange={setProformaProfitFixed}
+        onProfitPercentChange={(productId, val) => setProformaProfitPercent((prev) => ({ ...prev, [productId]: val }))}
+        onProfitFixedChange={(productId, val) => setProformaProfitFixed((prev) => ({ ...prev, [productId]: val }))}
         onProfitCurrencyChange={setProformaProfitCurrency}
         onExportCurrencyChange={setProformaExportCurrency}
         onTemplateChange={setProformaTemplate}

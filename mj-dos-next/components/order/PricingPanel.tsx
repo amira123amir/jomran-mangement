@@ -3,6 +3,7 @@ import PricingTab from '../PricingTab';
 import { useExchangeRateStore } from '../../stores/exchangeRateStore';
 import { formatNumber } from '../../utils/formatNumber';
 import { parseArabicNumber } from '../../utils/arabicNumerals';
+import { pricingForProduct, unpricedProducts, allProductsPriced, orderBaseTotals } from '../../utils/orderProducts';
 
 interface PricingPanelProps {
   order: Order;
@@ -22,6 +23,8 @@ interface PricingPanelProps {
   itemCurrencies: Record<string, 'RMB' | 'USD'>;
   totalRmb: number;
   totalUsd: number;
+  pricingProductId: string;
+  onPricingProductChange: (productId: string) => void;
   onShowPriceForm: (show: boolean) => void;
   onFactoryPriceChange: (val: string) => void;
   onShippingCostChange: (val: string) => void;
@@ -56,6 +59,8 @@ export default function PricingPanel({
   itemCurrencies,
   totalRmb,
   totalUsd,
+  pricingProductId,
+  onPricingProductChange,
   onShowPriceForm,
   onFactoryPriceChange,
   onShippingCostChange,
@@ -87,11 +92,11 @@ export default function PricingPanel({
           {isProcurement && !showPriceForm && (
             <button className="add-price-btn" onClick={() => onShowPriceForm(true)}>💰 تسعير</button>
           )}
-          {isSales && (order.status === 'pricing_completed' || order.status === 'quotation_presented') && latestPricing && (
+          {isSales && (order.status === 'pricing_completed' || order.status === 'quotation_presented') && allProductsPriced(order) && (
             <div className="ow-pricing-approval-bar">
               <div className="ow-pricing-approval-summary">
-                <span className="ow-pricing-approval-label">📋 التسعير الحالي:</span>
-                <span className="ow-pricing-approval-value">${formatNumber(latestPricing.totalUSD)} ({formatNumber(latestPricing.totalRMB)} RMB)</span>
+                <span className="ow-pricing-approval-label">📋 إجمالي التسعير ({order.products.length} منتج):</span>
+                <span className="ow-pricing-approval-value">${formatNumber(orderBaseTotals(order).usd)} ({formatNumber(orderBaseTotals(order).rmb)} RMB)</span>
               </div>
               <div className="ow-pricing-approval-actions">
                 <button className="ow-pricing-reject-btn" onClick={onRejectPricing}><strong>❌ رفض التسعير — إعادة إلى المشتريات</strong></button>
@@ -104,6 +109,25 @@ export default function PricingPanel({
           {showPriceForm && (
             <div className="ow-pricing-form" style={{ marginTop: 16 }}>
               <div className="ow-pricing-form-title">💰 إدخال تسعيرة جديدة</div>
+              <div className="ow-pricing-form-row">
+                <div className="ow-pricing-form-group">
+                  <label className="ow-pricing-form-label">المنتج المُسعّر <span className="req">*</span></label>
+                  <select
+                    className="ow-pricing-form-input"
+                    value={pricingProductId || unpricedProducts(order)[0]?.id || order.products[0]?.id || ''}
+                    onChange={(e) => onPricingProductChange(e.target.value)}
+                  >
+                    {order.products.map((p, i) => {
+                      const priced = pricingForProduct(order, p.id).length > 0;
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {i + 1}. {p.productName} {priced ? '✓ (مُسعّر — تحديث)' : '— بانتظار التسعير'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
               <div className="ow-pricing-form-row">
                 <div className="ow-pricing-form-group" style={{ maxWidth: 250 }}>
                   <label className="ow-pricing-form-label">سعر الصرف (USD → RMB)</label>

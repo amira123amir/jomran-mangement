@@ -5,6 +5,7 @@ import { useLiveTimer } from '../hooks/useLiveTimer';
 import { NOTE_TARGETS, getCurrentUserIds, canSeeConfidentialNote, isConfidentialRecipient } from '../utils/noteVisibility';
 import { formatNumber } from '../utils/formatNumber';
 import { pad2 } from '../utils/dateHelpers';
+import { productSummary, orderBaseTotals } from '../utils/orderProducts';
 import { statusLabel } from '../utils/orderStatus';
 import OrderWorkspace from './OrderWorkspace';
 import StatusFilter from './StatusFilter';
@@ -36,7 +37,7 @@ export default function ExecutiveDashboard({ persona, departmentLabel, role }: D
   const locked = orders.filter((o) => o.status === 'official_quotation_generated');
   const completed = orders.filter((o) => o.status === 'delivered');
   const totalRevenue = orders.reduce((s, o) => s + (o.revenue?.confirmedByNoor ? o.revenue.actualRevenueUSD : 0), 0);
-  const totalPipeline = orders.reduce((s, o) => { const lp = o.pricingHistory?.length ? o.pricingHistory[o.pricingHistory.length - 1] : null; return s + (lp?.totalUSD || 0); }, 0);
+  const totalPipeline = orders.reduce((s, o) => s + orderBaseTotals(o).usd, 0);
 
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [noteType, setNoteType] = useState<'general' | 'secret'>('general');
@@ -163,7 +164,7 @@ export default function ExecutiveDashboard({ persona, departmentLabel, role }: D
                       <td className="exec-td-num">#{order.orderNumber}{order.archivedAt ? ' 🗄️' : ''}</td>
                       <td className="exec-td-mark">{order.shippingMark}-{order.shippingMarkSerial}</td>
                       <td>{order.clientName}</td>
-                      <td>{order.productName}</td>
+                      <td>{productSummary(order)}</td>
                       <td>
                         <span className={`mct-status-badge status-${order.status}`}>{statusLabel(order.status)}</span>
                         {order.archivedAt && (
@@ -182,7 +183,7 @@ export default function ExecutiveDashboard({ persona, departmentLabel, role }: D
                       </td>
                       <td>{responsible}</td>
                       <td><ExecAgeCell createdAt={order.createdAt} /></td>
-                      <td>{order.pricingHistory?.length ? `$${formatNumber(order.pricingHistory[order.pricingHistory.length - 1].totalUSD)}` : '—'}</td>
+                      <td>{order.pricingHistory?.length ? `$${formatNumber(orderBaseTotals(order).usd)}` : '—'}</td>
                       <td>${formatNumber(order.revenue?.confirmedByNoor ? order.revenue.actualRevenueUSD : 0)}</td>
                       <td>
                         {order.claim?.deadlineAt ? (

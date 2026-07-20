@@ -9,6 +9,7 @@ import { QUEUE_FILTERS, statusLabel } from '../utils/orderStatus';
 import { parseArabicNumber } from '../utils/arabicNumerals';
 import { formatNumber } from '../utils/formatNumber';
 import { pad2 } from '../utils/dateHelpers';
+import { productSummary, orderBaseTotals } from '../utils/orderProducts';
 import KYCModal from './KYCModal';
 import SuccessModal from './SuccessModal';
 import OrderWorkspace from './OrderWorkspace';
@@ -71,6 +72,29 @@ function getFieldsForCategory(catId: string): OrderField[] {
   }
 }
 
+// One product row in the create form. `key` is a client-only React key; the
+// store assigns the real product id on submit.
+interface ProductEntry {
+  key: string;
+  productName: string;
+  category: string;
+  fields: Record<string, string>;
+  quantity: string;
+  targetPrice: string;
+}
+
+let productEntryKeyCounter = 0;
+function makeProductEntry(): ProductEntry {
+  return {
+    key: `pe-${++productEntryKeyCounter}-${Date.now()}`,
+    productName: '',
+    category: '',
+    fields: {},
+    quantity: '',
+    targetPrice: '',
+  };
+}
+
 type ViewMode = 'create' | 'my-orders' | 'workspace';
 
 export default function SalesOrderScreen() {
@@ -86,11 +110,9 @@ export default function SalesOrderScreen() {
   const [view, setView] = useState<ViewMode>('create');
   const [showKYC, setShowKYC] = useState(false);
   const [selectedClient, setSelectedClient] = useState('');
-  const [category, setCategory] = useState('');
-  const [productName, setProductName] = useState('');
-  const [fields, setFields] = useState<Record<string, string>>({});
-  const [quantity, setQuantity] = useState('');
-  const [targetPrice, setTargetPrice] = useState('');
+  // Multi-product editor: an order can carry one or more products. Starts with
+  // a single empty entry.
+  const [products, setProducts] = useState<ProductEntry[]>(() => [makeProductEntry()]);
   const [attachments, setAttachments] = useState<{ name: string; url: string; type: string }[]>([]);
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -102,7 +124,6 @@ export default function SalesOrderScreen() {
   const [salesQueueFilterId, setSalesQueueFilterId] = useState<string>('all');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const currentFields = category ? getFieldsForCategory(category) : [];
 
   const myOrders = allOrders.filter((o) => o.salesPersona === persona.name && !o.archivedAt);
   const actionNeededOrders = myOrders.filter((o) => ['pricing_completed', 'procurement_inquiry'].includes(o.status));
@@ -137,23 +158,66 @@ export default function SalesOrderScreen() {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleFieldChange = (key: string, value: string) => {
-    setFields((prev) => ({ ...prev, [key]: value }));
+  const addProduct = () => {
+    setProducts((prev) => [...prev, makeProductEntry()]);
+    setValidationError('');
+  };
+
+  const removeProduct = (key: string) => {
+    setProducts((prev) => (prev.length <= 1 ? prev : prev.filter((p) => p.key !== key)));
+    setValidationError('');
+  };
+
+  // Patch a top-level field on one product entry.
+  const updateProduct = (key: string, patch: Partial<ProductEntry>) => {
+    setProducts((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+    setValidationError('');
+  };
+
+  // Selecting a category resets that product's technical fields.
+  const setProductCategory = (key: string, category: string) => {
+    setProducts((prev) => prev.map((p) => (p.key === key ? { ...p, category, fields: {} } : p)));
+    setValidationError('');
+  };
+
+  // Patch a single technical (optional) field on one product entry.
+  const updateProductField = (key: string, fieldKey: string, value: string) => {
+    setProducts((prev) => prev.map((p) => (p.key === key ? { ...p, fields: { ...p.fields, [fieldKey]: value } } : p)));
     setValidationError('');
   };
 
   const handleSubmit = () => {
     setValidationError('');
     if (!selectedClient) { setValidationError('يجب اختيار عميل مسجل.'); return; }
-    if (!productName.trim()) { setValidationError('يجب إدخال اسم المنتج / المادة المطلوبة.'); return; }
-    if (!quantity.trim() || parseArabicNumber(quantity) <= 0) { setValidationError('يجب إدخال كمية صحيحة.'); return; }
+    if (products.length === 0) { setValidationError('يجب إضافة منتج واحد على الأقل.'); return; }
+    // Per-product validation — report the offending product's position.
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      if (!p.productName.trim()) { setValidationError(`المنتج ${i + 1}: يجب إدخال اسم المنتج / المادة المطلوبة.`); return; }
+      if (!p.quantity.trim() || parseArabicNumber(p.quantity) <= 0) { setValidationError(`المنتج ${i + 1}: يجب إدخال كمية صحيحة.`); return; }
+    }
     if (!isLocked) { setValidationError('لم يتم تثبيت أسعار الصرف بعد.'); return; }
 
     const client = clients.find((c) => c.id === selectedClient);
     if (!client) { setValidationError('العميل غير موجود.'); return; }
 
     const serial = getNextSerial(selectedClient);
-    const catLabel = CATEGORIES.find((c) => c.id === category)?.label || category;
+
+    // A single factory/product URL applies to the whole order in the create
+    // form; attach it to every product's factoryUrl.
+    const sharedFactoryUrl = attachmentUrl.trim() || undefined;
+    const orderProducts = products.map((p) => {
+      const catLabel = CATEGORIES.find((c) => c.id === p.category)?.label || p.category;
+      return {
+        productName: p.productName.trim(),
+        category: p.category,
+        categoryLabel: catLabel,
+        quantity: parseArabicNumber(p.quantity),
+        optionalFields: { ...p.fields, quantity: p.quantity },
+        ...(p.targetPrice ? { targetPrice: parseArabicNumber(p.targetPrice) } : {}),
+        ...(sharedFactoryUrl ? { factoryUrl: sharedFactoryUrl } : {}),
+      };
+    });
 
     const order = addOrder({
       clientId: selectedClient,
@@ -162,12 +226,7 @@ export default function SalesOrderScreen() {
       shippingMarkSerial: serial,
       salesPersona: persona.name,
       salesPersonaDept: persona.department,
-      category,
-      categoryLabel: catLabel,
-      productName: productName.trim(),
-      optionalFields: { ...fields, quantity },
-      targetPrice: targetPrice ? parseArabicNumber(targetPrice) : undefined,
-      factoryUrl: attachmentUrl.trim() || undefined,
+      products: orderProducts,
     });
 
     incrementOrderCount(selectedClient);
@@ -176,10 +235,11 @@ export default function SalesOrderScreen() {
       addDocument(order.id, att.name, att.type.startsWith('image/') ? 'attachment' : 'attachment', att.url, persona.name);
     });
 
+    const productsSummary = orderProducts.map((p) => `${p.productName} (×${p.quantity})`).join('، ');
     addLog(
       persona.name, persona.department,
       `تم إرسال الطلب رقم #${order.orderNumber} — رمز الشحن: ${client.shippingMark}-${serial}`,
-      `العميل: ${client.legalName} | المنتج: ${productName.trim()} | القسم: ${catLabel} | الكمية: ${quantity}`
+      `العميل: ${client.legalName} | عدد المنتجات: ${orderProducts.length} | المنتجات: ${productsSummary}`
     );
 
     setLastOrderNum(order.orderNumber);
@@ -188,11 +248,9 @@ export default function SalesOrderScreen() {
 
     setTimeout(() => {
       setOrderSubmitted(false);
+      // Reset the form for the next order.
       setSelectedClient('');
-      setCategory('');
-      setProductName('');
-      setFields({});
-      setQuantity('');
+      setProducts([makeProductEntry()]);
       setAttachments([]);
       setAttachmentUrl('');
     }, 3000);
@@ -279,7 +337,7 @@ export default function SalesOrderScreen() {
                       <div className="sos-pricing-main">
                         <span className="sos-pricing-num">#{order.orderNumber}</span>
                         <span className="sos-pricing-mark">{order.shippingMark}-{order.shippingMarkSerial}</span>
-                        <span className="sos-pricing-product">{order.productName}</span>
+                        <span className="sos-pricing-product">{productSummary(order)}</span>
                         <span className={`sos-order-status status-${order.status}`}>{statusLabel(order.status)}</span>
                         {persona.department === 'sales' && (
                           <>
@@ -311,15 +369,22 @@ export default function SalesOrderScreen() {
                           <div className="sos-order-meta">
                             {[
                               { label: 'العميل', value: order.clientName },
-                              { label: 'المنتج', value: order.productName },
-                              { label: 'القسم', value: order.categoryLabel || '—' },
+                              { label: 'عدد المنتجات', value: String(order.products.length) },
                               { label: 'البائع', value: order.salesPersona },
                               { label: 'المشتريات', value: order.claim?.claimedBy || order.assignment?.assignedTo || '—' },
-                              { label: 'الكمية', value: order.optionalFields?.quantity || '—' },
-                              { label: 'السعر المستهدف', value: order.targetPrice !== undefined ? `$${formatNumber(order.targetPrice)}` : '—' },
-                              { label: 'السعر المعتمد', value: (() => { const lp = order.pricingHistory?.length ? order.pricingHistory[order.pricingHistory.length - 1] : null; return lp ? `$${formatNumber(lp.totalUSD)}` : '—'; })() },
+                              { label: 'الإجمالي المعتمد', value: (() => { const lp = order.pricingHistory?.length ? order.pricingHistory[order.pricingHistory.length - 1] : null; return lp ? `$${formatNumber(lp.totalUSD)}` : '—'; })() },
                             ].map((f, i) => (
                               <span key={i} className="sos-order-meta-item"><strong>{f.label}:</strong> {f.value}</span>
+                            ))}
+                          </div>
+                          <div className="sos-order-products">
+                            <strong>المنتجات:</strong>
+                            {order.products.map((p, i) => (
+                              <div key={p.id} className="sos-order-product-line">
+                                {i + 1}. {p.productName} — الكمية: {p.quantity}
+                                {p.categoryLabel ? ` — القسم: ${p.categoryLabel}` : ''}
+                                {p.targetPrice !== undefined ? ` — السعر المستهدف: $${formatNumber(p.targetPrice)}` : ''}
+                              </div>
                             ))}
                           </div>
                           <div className="sos-order-notes">
@@ -383,7 +448,7 @@ export default function SalesOrderScreen() {
                             <td className="pw-registry-num">#{order.orderNumber}</td>
                             <td className="pw-registry-mark">{order.shippingMark}-{order.shippingMarkSerial}</td>
                             <td className="pw-registry-product">{order.clientName}</td>
-                            <td className="pw-registry-product">{order.productName || '—'}</td>
+                            <td className="pw-registry-product">{productSummary(order)}</td>
                             <td><span className={`pw-registry-status status-${order.status}`}>{statusLabel(order.status)}</span></td>
                             <td>{order.salesPersona || '—'}</td>
                             <td>{order.claim?.claimedBy || order.assignment?.assignedTo || '—'}</td>
@@ -411,15 +476,22 @@ export default function SalesOrderScreen() {
                                   <div className="sos-order-meta">
                                     {[
                                       { label: 'العميل', value: order.clientName },
-                                      { label: 'المنتج', value: order.productName },
-                                      { label: 'القسم', value: order.categoryLabel || '—' },
+                                      { label: 'عدد المنتجات', value: String(order.products.length) },
                                       { label: 'البائع', value: order.salesPersona },
                                       { label: 'المشتريات', value: order.claim?.claimedBy || order.assignment?.assignedTo || '—' },
-                                      { label: 'الكمية', value: order.optionalFields?.quantity || '—' },
-                                      { label: 'السعر المستهدف', value: order.targetPrice !== undefined ? `$${formatNumber(order.targetPrice)}` : '—' },
-                                      { label: 'السعر المعتمد', value: (() => { const lp = order.pricingHistory?.length ? order.pricingHistory[order.pricingHistory.length - 1] : null; return lp ? `$${formatNumber(lp.totalUSD)}` : '—'; })() },
+                                      { label: 'الإجمالي المعتمد', value: order.pricingHistory?.length ? `$${formatNumber(orderBaseTotals(order).usd)}` : '—' },
                                     ].map((f, i) => (
                                       <span key={i} className="sos-order-meta-item"><strong>{f.label}:</strong> {f.value}</span>
+                                    ))}
+                                  </div>
+                                  <div className="sos-order-products">
+                                    <strong>المنتجات:</strong>
+                                    {order.products.map((p, i) => (
+                                      <div key={p.id} className="sos-order-product-line">
+                                        {i + 1}. {p.productName} — الكمية: {p.quantity}
+                                        {p.categoryLabel ? ` — القسم: ${p.categoryLabel}` : ''}
+                                        {p.targetPrice !== undefined ? ` — السعر المستهدف: $${formatNumber(p.targetPrice)}` : ''}
+                                      </div>
                                     ))}
                                   </div>
                                   <div className="sos-order-notes">
@@ -518,61 +590,87 @@ export default function SalesOrderScreen() {
             <div className="sos-section">
               <div className="sos-section-title">
                 <span className="sos-section-num">٢</span>
-                تفاصيل الطلب
-              </div>
-              <div className="sos-field" style={{ marginBottom: 14 }}>
-                <label className="sos-label">اسم المنتج / المادة المطلوبة <span className="req">*</span></label>
-                <input className="sos-input" type="text" value={productName} onChange={(e) => { setProductName(e.target.value); setValidationError(''); }} placeholder="مثال: بانل إضاءة LED 60x60 | لابتوب Dell Latitude 5520" />
+                تفاصيل المنتجات ({products.length})
               </div>
 
-              <div className="sos-field" style={{ marginBottom: 14 }}>
-                <label className="sos-label">الكمية المطلوبة <span className="req">*</span></label>
-                <input className="sos-input" type="text" inputMode="numeric" value={quantity} onChange={(e) => { setQuantity(e.target.value); setValidationError(''); }} placeholder="0" min="1" />
-              </div>
+              {products.map((entry, idx) => {
+                const entryFields = entry.category ? getFieldsForCategory(entry.category) : [];
+                return (
+                  <div key={entry.key} className="sos-product-card">
+                    <div className="sos-product-card-header">
+                      <span className="sos-product-card-title">المنتج {idx + 1}</span>
+                      {products.length > 1 && (
+                        <button
+                          type="button"
+                          className="sos-product-remove"
+                          title="حذف هذا المنتج"
+                          onClick={() => removeProduct(entry.key)}
+                        >
+                          ✕ حذف
+                        </button>
+                      )}
+                    </div>
 
-              <div className="sos-field" style={{ marginBottom: 14 }}>
-                <label className="sos-label">التسعير المستهدف (USD) <span className="sos-optional-tag">(اختياري)</span></label>
-                <input className="sos-input" type="text" inputMode="decimal" value={targetPrice} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value) || e.target.value === '') setTargetPrice(e.target.value); }} placeholder="0.000" />
-              </div>
+                    <div className="sos-field" style={{ marginBottom: 14 }}>
+                      <label className="sos-label">اسم المنتج / المادة المطلوبة <span className="req">*</span></label>
+                      <input className="sos-input" type="text" value={entry.productName} onChange={(e) => updateProduct(entry.key, { productName: e.target.value })} placeholder="مثال: بانل إضاءة LED 60x60 | لابتوب Dell Latitude 5520" />
+                    </div>
 
-              <div className="sos-field">
-                <label className="sos-label">القسم الرئيسي للطلب <span className="sos-optional-tag">(اختياري)</span></label>
-                <div className="sos-category-grid">
-                  {CATEGORIES.map((cat) => (
-                    <button key={cat.id} className={`sos-cat-btn ${category === cat.id ? 'selected' : ''}`}
-                      onClick={() => { setCategory(cat.id); setFields({}); setValidationError(''); }}>
-                      <span className="sos-cat-icon">{cat.icon}</span>
-                      <span className="sos-cat-label">{cat.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                    <div className="sos-field" style={{ marginBottom: 14 }}>
+                      <label className="sos-label">الكمية المطلوبة <span className="req">*</span></label>
+                      <input className="sos-input" type="text" inputMode="numeric" value={entry.quantity} onChange={(e) => updateProduct(entry.key, { quantity: e.target.value })} placeholder="0" min="1" />
+                    </div>
 
-              {category && currentFields.length > 0 && (
-                <div className="sos-dynamic-fields">
-                  <div className="sos-dynamic-hint">
-                    الحقول التقنية التالية لقسم <strong>{CATEGORIES.find((c) => c.id === category)?.label}</strong> — <em>اختيارية</em>
-                  </div>
-                  <div className="sos-fields-grid">
-                    {currentFields.map((f) => (
-                      <div key={f.key} className="sos-field">
-                        <label className="sos-label">{f.label} <span className="sos-optional-tag">(اختياري)</span></label>
-                        {f.type === 'select' ? (
-                          <select className="sos-input" value={fields[f.key] || ''} onChange={(e) => handleFieldChange(f.key, e.target.value)}>
-                            <option value="">— اختر (اختياري) —</option>
-                            {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
-                          </select>
-                        ) : (
-                          <div className="sos-input-with-unit">
-                            <input className="sos-input" type={f.type} value={fields[f.key] || ''} onChange={(e) => handleFieldChange(f.key, e.target.value)} placeholder={f.placeholder} />
-                            {f.unit && <span className="sos-input-unit">{f.unit}</span>}
-                          </div>
-                        )}
+                    <div className="sos-field" style={{ marginBottom: 14 }}>
+                      <label className="sos-label">التسعير المستهدف (USD) <span className="sos-optional-tag">(اختياري)</span></label>
+                      <input className="sos-input" type="text" inputMode="decimal" value={entry.targetPrice} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value) || e.target.value === '') updateProduct(entry.key, { targetPrice: e.target.value }); }} placeholder="0.000" />
+                    </div>
+
+                    <div className="sos-field">
+                      <label className="sos-label">القسم <span className="sos-optional-tag">(اختياري)</span></label>
+                      <div className="sos-category-grid">
+                        {CATEGORIES.map((cat) => (
+                          <button key={cat.id} type="button" className={`sos-cat-btn ${entry.category === cat.id ? 'selected' : ''}`}
+                            onClick={() => setProductCategory(entry.key, cat.id)}>
+                            <span className="sos-cat-icon">{cat.icon}</span>
+                            <span className="sos-cat-label">{cat.label}</span>
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+
+                    {entry.category && entryFields.length > 0 && (
+                      <div className="sos-dynamic-fields">
+                        <div className="sos-dynamic-hint">
+                          الحقول التقنية التالية لقسم <strong>{CATEGORIES.find((c) => c.id === entry.category)?.label}</strong> — <em>اختيارية</em>
+                        </div>
+                        <div className="sos-fields-grid">
+                          {entryFields.map((f) => (
+                            <div key={f.key} className="sos-field">
+                              <label className="sos-label">{f.label} <span className="sos-optional-tag">(اختياري)</span></label>
+                              {f.type === 'select' ? (
+                                <select className="sos-input" value={entry.fields[f.key] || ''} onChange={(e) => updateProductField(entry.key, f.key, e.target.value)}>
+                                  <option value="">— اختر (اختياري) —</option>
+                                  {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              ) : (
+                                <div className="sos-input-with-unit">
+                                  <input className="sos-input" type={f.type} value={entry.fields[f.key] || ''} onChange={(e) => updateProductField(entry.key, f.key, e.target.value)} placeholder={f.placeholder} />
+                                  {f.unit && <span className="sos-input-unit">{f.unit}</span>}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })}
+
+              <button type="button" className="sos-add-product-btn" onClick={addProduct}>
+                <span>+</span> إضافة منتج آخر
+              </button>
             </div>
 
             <div className="sos-section">

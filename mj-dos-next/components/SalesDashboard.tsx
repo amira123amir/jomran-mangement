@@ -3,6 +3,7 @@ import { useOrderStore } from '../stores/orderStore';
 import { formatNumber } from '../utils/formatNumber';
 import { statusLabel, QUEUE_FILTERS } from '../utils/orderStatus';
 import { pad2 } from '../utils/dateHelpers';
+import { productSummary, orderBaseTotals } from '../utils/orderProducts';
 import { canSeeNote } from '../utils/noteVisibility';
 import CustomNotesSection from './CustomNotesSection';
 import OrderStatusFilterBar from './OrderStatusFilterBar';
@@ -33,7 +34,7 @@ export default function SalesDashboard({ persona, departmentLabel, role, departm
   const pending = myOrders.filter((o) => o.status === 'waiting_for_assignment');
   const inProgress = myOrders.filter((o) => o.status === 'pricing_in_progress');
   const totalRevenue = myOrders.reduce((s, o) => s + (o.revenue?.confirmedByNoor ? o.revenue.actualRevenueUSD : 0), 0);
-  const totalPipeline = myOrders.reduce((s, o) => { const lp = o.pricingHistory?.length ? o.pricingHistory[o.pricingHistory.length - 1] : null; return s + (lp?.totalUSD || 0); }, 0);
+  const totalPipeline = myOrders.reduce((s, o) => s + orderBaseTotals(o).usd, 0);
 
   if (workspaceOrderId) {
     return (
@@ -126,7 +127,7 @@ export default function SalesDashboard({ persona, departmentLabel, role, departm
                         <td className="pw-registry-num">#{order.orderNumber}</td>
                         <td className="pw-registry-mark">{order.shippingMark}-{order.shippingMarkSerial}</td>
                         <td className="pw-registry-product">{order.clientName}</td>
-                        <td className="pw-registry-product">{order.productName || '—'}</td>
+                        <td className="pw-registry-product">{productSummary(order)}</td>
                         <td><span className={`pw-registry-status status-${order.status}`}>{statusLabel(order.status)}</span></td>
                         <td>{order.salesPersona || '—'}</td>
                         <td>{order.claim?.claimedBy || order.assignment?.assignedTo || '—'}</td>
@@ -154,15 +155,22 @@ export default function SalesDashboard({ persona, departmentLabel, role, departm
                               <div className="sos-order-meta">
                                 {[
                                   { label: 'العميل', value: order.clientName },
-                                  { label: 'المنتج', value: order.productName },
-                                  { label: 'القسم', value: order.categoryLabel || '—' },
+                                  { label: 'عدد المنتجات', value: String(order.products.length) },
                                   { label: 'البائع', value: order.salesPersona },
                                   { label: 'المشتريات', value: order.claim?.claimedBy || order.assignment?.assignedTo || '—' },
-                                  { label: 'الكمية', value: order.optionalFields?.quantity || '—' },
-                                  { label: 'السعر المستهدف', value: order.targetPrice !== undefined ? `$${formatNumber(order.targetPrice)}` : '—' },
-                                  { label: 'السعر المعتمد', value: (() => { const lp = order.pricingHistory?.length ? order.pricingHistory[order.pricingHistory.length - 1] : null; return lp ? `$${formatNumber(lp.totalUSD)}` : '—'; })() },
+                                  { label: 'الإجمالي المعتمد', value: order.pricingHistory?.length ? `$${formatNumber(orderBaseTotals(order).usd)}` : '—' },
                                 ].map((f, i) => (
                                   <span key={i} className="sos-order-meta-item"><strong>{f.label}:</strong> {f.value}</span>
+                                ))}
+                              </div>
+                              <div className="sos-order-products">
+                                <strong>المنتجات:</strong>
+                                {order.products.map((p, i) => (
+                                  <div key={p.id} className="sos-order-product-line">
+                                    {i + 1}. {p.productName} — الكمية: {p.quantity}
+                                    {p.categoryLabel ? ` — القسم: ${p.categoryLabel}` : ''}
+                                    {p.targetPrice !== undefined ? ` — السعر المستهدف: $${formatNumber(p.targetPrice)}` : ''}
+                                  </div>
                                 ))}
                               </div>
                               <div className="sos-order-notes">

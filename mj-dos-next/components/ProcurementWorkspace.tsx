@@ -7,6 +7,7 @@ import { ORDER_NOTE_TARGETS, canSeeNote } from '../utils/noteVisibility';
 import { QUEUE_FILTERS, statusLabel } from '../utils/orderStatus';
 import { formatNumber } from '../utils/formatNumber';
 import { pad2 } from '../utils/dateHelpers';
+import { productSummary } from '../utils/orderProducts';
 import StatusFilter from './StatusFilter';
 import OrderStatusFilterBar from './OrderStatusFilterBar';
 import { applyStatusFilter, type StatusFilterValue } from '../utils/statusFilter';
@@ -233,30 +234,35 @@ export default function ProcurementWorkspace() {
                   </div>
                   <div className="pw-view-modal-body">
                     <div className="pw-view-row"><span className="pw-view-label">الشيبينغ مارك:</span><span className="pw-view-value">{vo.shippingMark}-{vo.shippingMarkSerial}</span></div>
-                    <div className="pw-view-row"><span className="pw-view-label">المنتج:</span><span className="pw-view-value">{vo.productName || '—'}</span></div>
-                    {vo.factoryUrl && (
-                      <div className="pw-view-row">
-                        <span className="pw-view-label">رابط المنتج:</span>
-                        <span className="pw-view-value">
-                          <a href={vo.factoryUrl} target="_blank" rel="noopener noreferrer" className="pw-view-doc-link" dir="ltr">{vo.factoryUrl}</a>
-                        </span>
-                      </div>
-                    )}
-                    <div className="pw-view-row"><span className="pw-view-label">الكمية:</span><span className="pw-view-value">{vo.optionalFields?.quantity || '—'}</span></div>
-                    <div className="pw-view-row"><span className="pw-view-label">القسم:</span><span className="pw-view-value">{vo.categoryLabel || '—'}</span></div>
                     <div className="pw-view-row"><span className="pw-view-label">المسؤول:</span><span className="pw-view-value">{vo.salesPersona}</span></div>
                     <div className="pw-view-row"><span className="pw-view-label">تاريخ الإنشاء:</span><span className="pw-view-value">{vo.createdAt}</span></div>
                     <div className="pw-view-row"><span className="pw-view-label">الحالة:</span><span className="pw-view-value">{vo.status}</span></div>
 
-                    {vo.optionalFields && Object.keys(vo.optionalFields).filter(k => k !== 'quantity').length > 0 && (
-                      <>
-                        <div className="pw-view-divider" />
-                        <div className="pw-view-subtitle">حقول إضافية</div>
-                        {Object.entries(vo.optionalFields).filter(([k]) => k !== 'quantity').map(([key, val]) => (
-                          <div key={key} className="pw-view-row"><span className="pw-view-label">{key}:</span><span className="pw-view-value">{val}</span></div>
-                        ))}
-                      </>
-                    )}
+                    {vo.products.map((p, idx) => {
+                      const extraFields = Object.entries(p.optionalFields || {}).filter(([k, v]) => k !== 'quantity' && v);
+                      return (
+                        <div key={p.id}>
+                          <div className="pw-view-divider" />
+                          <div className="pw-view-subtitle">📦 المنتج {idx + 1}: {p.productName}</div>
+                          <div className="pw-view-row"><span className="pw-view-label">الكمية:</span><span className="pw-view-value">{p.quantity || '—'}</span></div>
+                          <div className="pw-view-row"><span className="pw-view-label">القسم:</span><span className="pw-view-value">{p.categoryLabel || '—'}</span></div>
+                          {p.factoryUrl && (
+                            <div className="pw-view-row">
+                              <span className="pw-view-label">رابط المنتج:</span>
+                              <span className="pw-view-value">
+                                <a href={p.factoryUrl} target="_blank" rel="noopener noreferrer" className="pw-view-doc-link" dir="ltr">{p.factoryUrl}</a>
+                              </span>
+                            </div>
+                          )}
+                          {p.targetPrice !== undefined && (
+                            <div className="pw-view-row"><span className="pw-view-label">السعر المستهدف:</span><span className="pw-view-value">${formatNumber(p.targetPrice)}</span></div>
+                          )}
+                          {extraFields.map(([key, val]) => (
+                            <div key={key} className="pw-view-row"><span className="pw-view-label">{key}:</span><span className="pw-view-value">{val}</span></div>
+                          ))}
+                        </div>
+                      );
+                    })}
 
                     {vo.documents.length > 0 && (
                       <>
@@ -369,7 +375,7 @@ export default function ProcurementWorkspace() {
                           <tr key={order.id} className={claimedByMe ? 'pw-registry-mine' : ''}>
                             <td className="pw-registry-num">#{order.orderNumber}</td>
                             <td className="pw-registry-mark">{order.shippingMark}-{order.shippingMarkSerial}</td>
-                            <td className="pw-registry-product">{order.productName || '—'}</td>
+                            <td className="pw-registry-product">{productSummary(order)}</td>
                             <td><span className={`pw-registry-status status-${order.status}`}>{statusLabel(order.status)}</span></td>
                             <td>{order.salesPersona || '—'}</td>
                             <td>{procOwner ? procOwner : <span className="pw-registry-unassigned">— بانتظار التعيين</span>}</td>
@@ -429,7 +435,7 @@ export default function ProcurementWorkspace() {
                         <div className="pw-claim-info">
                           <span className="pw-claim-num">#{order.orderNumber}</span>
                           <span className="pw-claim-mark">{order.shippingMark}-{order.shippingMarkSerial}</span>
-                          <span className="pw-claim-product">{order.productName}</span>
+                          <span className="pw-claim-product">{productSummary(order)}</span>
                           <span className={`pw-registry-status status-${order.status}`}>{statusLabel(order.status)}</span>
                         </div>
                         <div className="pw-claim-actions">
@@ -454,19 +460,24 @@ export default function ProcurementWorkspace() {
 
                     {expandedOrder === order.id && (
                       <div className="pw-claim-expanded">
-                        {order.targetPrice !== undefined && (
+                        {order.products.some((p) => p.targetPrice !== undefined) && (
                           <div className="pw-supplier-info">
                             <span className="pw-supplier-label">التسعير المستهدف:</span>
-                            <span>${formatNumber(order.targetPrice)}</span>
+                            <span>
+                              {order.products
+                                .filter((p) => p.targetPrice !== undefined)
+                                .map((p) => `${p.productName}: $${formatNumber(p.targetPrice as number)}`)
+                                .join('، ')}
+                            </span>
                           </div>
                         )}
 
-                        {order.factoryUrl && (
-                          <div className="pw-supplier-info">
-                            <span className="pw-supplier-label">رابط المنتج:</span>
-                            <a href={order.factoryUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'underline', fontSize: 13, wordBreak: 'break-all' }} dir="ltr">{order.factoryUrl}</a>
+                        {order.products.filter((p) => p.factoryUrl).map((p) => (
+                          <div key={p.id} className="pw-supplier-info">
+                            <span className="pw-supplier-label">رابط المنتج ({p.productName}):</span>
+                            <a href={p.factoryUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'underline', fontSize: 13, wordBreak: 'break-all' }} dir="ltr">{p.factoryUrl}</a>
                           </div>
-                        )}
+                        ))}
 
                         {order.supplierData && (
                           <div className="pw-supplier-info">

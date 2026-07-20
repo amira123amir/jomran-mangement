@@ -252,3 +252,95 @@ img, svg {
   .exec-detail-grid { grid-template-columns: 1fr; }
   .mct-detail-grid { grid-template-columns: 1fr; }
 }
+
+/* ===== Multi-product feature (feature/multiple-products) ===== */
+/* Multi-product editor: one card per product in the create form. */
+.sos-product-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.sos-product-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sos-product-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+.sos-product-remove {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--accent-red, #dc2626);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.sos-product-remove:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-red, #dc2626);
+}
+.sos-add-product-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 1px dashed var(--accent-blue);
+  border-radius: var(--radius-lg);
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.sos-add-product-btn:hover { transform: translateY(-1px); }
+.sos-add-product-btn span { font-size: 16px; line-height: 1; }
+/* Per-product breakdown in the "my orders" expanded summary. */
+.sos-order-products {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sos-order-product-line {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Per-product proforma line editor. */
+.ow-proforma-lines { margin: 14px 0; }
+.ow-proforma-line {
+  border: 1px solid var(--border-subtle, #e2e8f0);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--bg-secondary, #f8fafc);
+}
+.ow-proforma-line-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.ow-proforma-line-base { font-size: 12px; color: var(--text-secondary, #64748b); }
+.ow-proforma-line-final {
+  font-weight: 700;
+  color: #0369a1;
+  font-size: 13px;
+  white-space: nowrap;
+}

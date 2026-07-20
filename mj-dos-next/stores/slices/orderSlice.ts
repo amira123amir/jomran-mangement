@@ -1,9 +1,9 @@
-import type { Order, SupplierData } from '../../types';
+import type { Order, OrderProduct, SupplierData } from '../../types';
 import type { TransitionResult } from './transitionTypes';
 
 export interface OrderSlice {
   orders: Order[];
-  addOrder: (data: Omit<Order, 'id' | 'orderNumber' | 'status' | 'claim' | 'pricingHistory' | 'revenue' | 'notes' | 'customNotes' | 'proforma' | 'negotiationHistory' | 'documents' | 'supplierData' | 'assignment' | 'lockTicket' | 'workflowHistory' | 'createdAt' | 'updatedAt'> & { targetPrice?: number }) => Order;
+  addOrder: (data: Omit<Order, 'id' | 'orderNumber' | 'status' | 'claim' | 'pricingHistory' | 'revenue' | 'notes' | 'customNotes' | 'proforma' | 'negotiationHistory' | 'documents' | 'supplierData' | 'assignment' | 'lockTicket' | 'workflowHistory' | 'createdAt' | 'updatedAt' | 'products'> & { products: Omit<OrderProduct, 'id'>[] }) => Order;
   getOrderById: (id: string) => Order | undefined;
   getOrdersBySales: (personaName: string) => Order[];
   getOrdersByCategory: (category: string) => Order[];

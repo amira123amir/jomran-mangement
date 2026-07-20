@@ -137,7 +137,7 @@ export function buildOrderTimeline(order: Order): TimelineEvent[] {
       actorName: p.submittedBy,
       actorDept: 'sales',
       title: 'إعداد عرض السعر للعميل',
-      detail: `السعر النهائي: ¥ ${formatNumber(p.finalPriceRMB)} RMB · $ ${formatNumber(p.finalPriceUSD)} USD · القالب: ${p.template} · العملة المُصدَّرة: ${p.exportCurrency}`,
+      detail: `الإجمالي النهائي (${p.lines.length} منتج): ¥ ${formatNumber(p.grandTotalRMB)} RMB · $ ${formatNumber(p.grandTotalUSD)} USD · القالب: ${p.template} · العملة المُصدَّرة: ${p.exportCurrency}`,
       icon: '📄',
       tone: 'info',
     });

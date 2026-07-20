@@ -2,6 +2,7 @@ import type { Order, ProformaInvoice, QuotationCurrency, QuotationTemplate } fro
 import { downloadXlsx } from './xlsxWriter';
 import { formatNumber } from './formatNumber';
 import { escapeHtml } from './helpers';
+import { categorySummary } from './orderProducts';
 
 export interface QuotationLineItem {
   productName: string;
@@ -43,28 +44,30 @@ function fmt(value: number): string {
 }
 
 function priceInCurrency(payload: QuotationPayload): number {
-  return payload.currency === 'USD' ? payload.proforma.finalPriceUSD : payload.proforma.finalPriceRMB;
+  return payload.currency === 'USD' ? payload.proforma.grandTotalUSD : payload.proforma.grandTotalRMB;
 }
 
+// One quotation line per product, matched to its proforma line by productId.
 function buildLineItems(payload: QuotationPayload): QuotationLineItem[] {
   const { order, proforma, currency } = payload;
-  const quantityRaw = order.optionalFields?.quantity ?? '1';
-  const qtyNum = Number(quantityRaw) || 1;
-  const unitTotal = currency === 'USD' ? proforma.finalPriceUSD : proforma.finalPriceRMB;
-  const unitPrice = qtyNum > 0 ? unitTotal / qtyNum : unitTotal;
-  const specParts = order.optionalFields
-    ? Object.entries(order.optionalFields)
-        .filter(([k, v]) => k !== 'quantity' && v && String(v).trim())
-        .map(([k, v]) => `${k}: ${v}`)
-    : [];
-
-  return [{
-    productName: order.productName,
-    specification: specParts.join(' | ') || order.categoryLabel || '',
-    quantity: quantityRaw,
-    unitPrice,
-    total: unitTotal,
-  }];
+  return order.products.map((product) => {
+    const line = proforma.lines.find((l) => l.productId === product.id);
+    const lineTotal = line
+      ? (currency === 'USD' ? line.finalPriceUSD : line.finalPriceRMB)
+      : 0;
+    const qtyNum = Number(product.quantity) || 1;
+    const unitPrice = qtyNum > 0 ? lineTotal / qtyNum : lineTotal;
+    const specParts = Object.entries(product.optionalFields || {})
+      .filter(([k, v]) => k !== 'quantity' && v && String(v).trim())
+      .map(([k, v]) => `${k}: ${v}`);
+    return {
+      productName: product.productName,
+      specification: specParts.join(' | ') || product.categoryLabel || '',
+      quantity: product.quantity,
+      unitPrice,
+      total: lineTotal,
+    };
+  });
 }
 
 function styleBlock(): string {
@@ -241,7 +244,7 @@ function renderHeaderHtml(payload: QuotationPayload): string {
       <div class="q-section-title">بيانات العميل</div>
       <div class="q-customer-grid">
         <div><strong>الاسم:</strong> ${escapeHtml(payload.order.clientName)}</div>
-        <div><strong>القسم:</strong> ${escapeHtml(payload.order.categoryLabel || '—')}</div>
+        <div><strong>القسم:</strong> ${escapeHtml(categorySummary(payload.order) || '—')}</div>
       </div>
     </div>
   `;
@@ -403,7 +406,7 @@ export function exportQuotationExcel(payload: QuotationPayload): void {
     [],
     ['بيانات العميل'],
     ['الاسم', payload.order.clientName],
-    ['القسم', payload.order.categoryLabel || ''],
+    ['القسم', categorySummary(payload.order) || ''],
     [],
     ['المنتج', 'الكمية', `سعر الوحدة (${sym})`, `الإجمالي (${sym})`],
   );

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useOrderStore } from '../stores/orderStore';
 import { useAuditStore } from '../stores/auditStore';
 import { formatNumber } from '../utils/formatNumber';
+import { productSummary } from '../utils/orderProducts';
 import { statusLabel, QUEUE_FILTERS } from '../utils/orderStatus';
 import CustomNotesSection from './CustomNotesSection';
 
@@ -97,7 +98,7 @@ export default function ProcurementDashboard({ persona, departmentLabel, role, d
                   <tr key={o.id}>
                     <td className="pw-registry-num">#{o.orderNumber}</td>
                     <td className="pw-registry-mark">{o.shippingMark}-{o.shippingMarkSerial}</td>
-                    <td className="pw-registry-product">{o.productName || '—'}</td>
+                    <td className="pw-registry-product">{productSummary(o)}</td>
                     <td><span className={`pw-registry-status status-${o.status}`}>{statusLabel(o.status)}</span></td>
                     <td>{o.salesPersona || '—'}</td>
                     <td>{o.assignment?.assignedTo || o.claim?.claimedBy || '—'}</td>

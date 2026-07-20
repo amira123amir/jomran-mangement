@@ -9,6 +9,7 @@ import OrderWorkspace from './OrderWorkspace';
 import { statusLabel, QUEUE_FILTERS } from '../utils/orderStatus';
 import { formatNumber } from '../utils/formatNumber';
 import { pad2 } from '../utils/dateHelpers';
+import { productSummary, categorySummary, orderBaseTotals } from '../utils/orderProducts';
 import OrderStatusFilterBar from './OrderStatusFilterBar';
 import type { Order } from '../types';
 
@@ -73,10 +74,7 @@ export default function ManagerControlTower() {
     locked: relevantOrders.filter((o) => ['official_quotation_generated', 'deposit_paid', 'deposit_confirmed'].includes(o.status)).length,
     completed: relevantOrders.filter((o) => o.status === 'delivered').length,
     totalRevenue: relevantOrders.reduce((sum, o) => sum + (o.revenue?.actualRevenueUSD || 0), 0),
-    totalPipeline: relevantOrders.reduce((sum, o) => {
-      const lp = o.pricingHistory?.length ? o.pricingHistory[o.pricingHistory.length - 1] : null;
-      return sum + (lp?.totalUSD || 0);
-    }, 0),
+    totalPipeline: relevantOrders.reduce((sum, o) => sum + orderBaseTotals(o).usd, 0),
   };
 
   if (workspaceOrderId) {
@@ -164,11 +162,11 @@ export default function ManagerControlTower() {
                     <td className="pw-registry-num">#{order.orderNumber}</td>
                     <td className="pw-registry-mark">{order.shippingMark}-{order.shippingMarkSerial}</td>
                     <td>{persona.department === 'procurement' ? `#${order.orderNumber}` : order.clientName}</td>
-                    <td>{order.productName}</td>
+                    <td>{productSummary(order)}</td>
                     <td><span className={`pw-registry-status status-${order.status}`}>{statusLabel(order.status)}</span></td>
                     <td>{assignedTo || '—'}</td>
                     <td><MctAgeCell createdAt={order.createdAt} /></td>
-                    <td>{order.pricingHistory?.length ? `$${formatNumber(order.pricingHistory[order.pricingHistory.length - 1].totalUSD)}` : '—'}</td>
+                    <td>{order.pricingHistory?.length ? `$${formatNumber(orderBaseTotals(order).usd)}` : '—'}</td>
                     <td>{order.revenue ? `$${formatNumber(order.revenue.actualRevenueUSD)}` : '$0'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -204,8 +202,8 @@ export default function ManagerControlTower() {
             <div className="mct-detail-grid">
               <div className="mct-detail-col">
                 <div className="mct-detail-row"><span className="mct-detail-label">{persona.department === 'procurement' ? 'رقم الطلب:' : 'العميل:'}</span><span>{persona.department === 'procurement' ? `#${order.orderNumber}` : order.clientName}</span></div>
-                <div className="mct-detail-row"><span className="mct-detail-label">المنتج:</span><span>{order.productName}</span></div>
-                <div className="mct-detail-row"><span className="mct-detail-label">القسم:</span><span>{order.categoryLabel}</span></div>
+                <div className="mct-detail-row"><span className="mct-detail-label">المنتجات:</span><span>{productSummary(order)} ({order.products.length})</span></div>
+                <div className="mct-detail-row"><span className="mct-detail-label">القسم:</span><span>{categorySummary(order)}</span></div>
                 <div className="mct-detail-row"><span className="mct-detail-label">البائع:</span><span>{order.salesPersona}</span></div>
               </div>
               <div className="mct-detail-col">
