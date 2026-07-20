@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { usePersonaStore } from '../stores/personaStore';
 import ExchangeRateScreen from './ExchangeRateScreen';
 import SalesOrderScreen from './SalesOrderScreen';
@@ -9,38 +10,81 @@ import { SalesDashboard, ProcurementDashboard, AccountingDashboard, DefaultDashb
 
 export default function Workspace() {
   const { activePersona, activeTab } = usePersonaStore();
+
   const activeNavItem = activePersona.navItems.find((n) => n.id === activeTab);
 
-  const renderContent = () => {
-    if (activePersona.department === 'accounting' && activeTab === 'exchange-rates') {
+  const renderContent = useMemo(() => {
+    // Always return a usable component.
+    // If activeTab isn't mapped, generic department dashboards act as fallback.
+    const department = activePersona.department;
+
+    if (department === 'accounting' && activeTab === 'exchange-rates') {
       return <ExchangeRateScreen />;
     }
-    if (activePersona.department === 'sales' && activeTab === 'new-order') {
+    if (department === 'sales' && activeTab === 'new-order') {
       return <SalesOrderScreen />;
     }
-    if (activePersona.department === 'procurement' && activeTab === 'dashboard') {
+    if (department === 'procurement' && activeTab === 'dashboard') {
       return <ProcurementWorkspace />;
     }
-    if (activePersona.department === 'procurement' && activeTab === 'suppliers') {
+    if (department === 'procurement' && activeTab === 'suppliers') {
       return <SupplierDirectory />;
     }
-    if (activePersona.department === 'sales' && activeTab === 'orders' && activePersona.name === 'لميس - مديرة المبيعات') {
+    if (department === 'sales' && activeTab === 'orders' && activePersona.name === 'لميس - مديرة المبيعات') {
       return <ManagerControlTower />;
     }
-    if (activePersona.department === 'sales') {
-      return <SalesDashboard persona={activePersona.name} departmentLabel={activePersona.departmentLabel} role={activePersona.role} department={activePersona.department} />;
+
+    if (department === 'sales') {
+      return (
+        <SalesDashboard
+          persona={activePersona.name}
+          departmentLabel={activePersona.departmentLabel}
+          role={activePersona.role}
+          department={activePersona.department}
+        />
+      );
     }
-    if (activePersona.department === 'procurement') {
-      return <ProcurementDashboard persona={activePersona.name} departmentLabel={activePersona.departmentLabel} role={activePersona.role} department={activePersona.department} />;
+    if (department === 'procurement') {
+      return (
+        <ProcurementDashboard
+          persona={activePersona.name}
+          departmentLabel={activePersona.departmentLabel}
+          role={activePersona.role}
+          department={activePersona.department}
+        />
+      );
     }
-    if (activePersona.department === 'accounting') {
-      return <AccountingDashboard persona={activePersona.name} departmentLabel={activePersona.departmentLabel} role={activePersona.role} department={activePersona.department} />;
+    if (department === 'accounting') {
+      return (
+        <AccountingDashboard
+          persona={activePersona.name}
+          departmentLabel={activePersona.departmentLabel}
+          role={activePersona.role}
+          department={activePersona.department}
+        />
+      );
     }
-    if (activePersona.department === 'executive') {
-      return <ExecutiveDashboard persona={activePersona.name} departmentLabel={activePersona.departmentLabel} role={activePersona.role} department={activePersona.department} />;
+    if (department === 'executive') {
+      return (
+        <ExecutiveDashboard
+          persona={activePersona.name}
+          departmentLabel={activePersona.departmentLabel}
+          role={activePersona.role}
+          department={activePersona.department}
+        />
+      );
     }
-    return <DefaultDashboard persona={activePersona.name} departmentLabel={activePersona.departmentLabel} role={activePersona.role} department={activePersona.department} />;
-  };
+
+    return (
+      <DefaultDashboard
+        persona={activePersona.name}
+        departmentLabel={activePersona.departmentLabel}
+        role={activePersona.role}
+        department={activePersona.department}
+      />
+    );
+  }, [activePersona, activeTab]);
+
 
   return (
     <main className="workspace">
@@ -63,7 +107,8 @@ export default function Workspace() {
         </div>
       </div>
       <div className="workspace-content">
-        {renderContent()}
+        {renderContent}
+
       </div>
     </main>
   );
